@@ -72,4 +72,9 @@ dependencies {
     // Compile-only: at runtime these classes are provided by LSPosed itself.
     // Bundling them would clash with the framework's copy.
     compileOnly(files("$projectDir/libs/api-82.jar"))
+
+    // Plain JVM tests for the argument-parsing logic; it needs neither Xposed nor Android.
+    testImplementation(libs.junit)
+    // The module implements an Xposed interface, so the API is needed to reference the class.
+    testCompileOnly(files("$projectDir/libs/api-82.jar"))
 }

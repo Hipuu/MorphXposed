@@ -86,7 +86,9 @@ BUILD SUCCESSFUL
 | `InstallResultReceiverTest` | 8 | 0 | Robolectric + ShadowPackageInstaller |
 | `SessionInstallerTest` | 5 | 0 | Robolectric + ShadowPackageInstaller |
 | `UpdateCheckPlanTest` | 4 | 0 | JVM (pure functions) |
-| **Total** | **177** | **0** (0 skipped) | |
+| `PackageNamesTest` (module) | 7 | 0 | JVM (module) |
+| Root-mount shell execution | 14 checks | 0 | **real bash via WSL** |
+| **Total** | **185** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -148,6 +150,29 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### The root-mount scripts are executed in a real shell
+
+`RootModuleScriptsTest` inspects the generated shell as text. That is weaker than running it, and
+this project has repeatedly been bitten by things that read correctly and behave otherwise. WSL
+with a Linux distribution was available, so the scripts are now **executed** by
+`scripts/verify-root-scripts.sh`: `bash -n` and `sh -n` for syntax, the `module.prop` keys, and
+the scripts run for real with the Android commands (`pm`, `dumpsys`, `mount`, `umount`, `getprop`,
+`am`) stubbed on `PATH`.
+
+Fourteen checks, all passing, including the two that matter most:
+
+* with a matching version the script **does** attempt a bind mount;
+* with a mismatched version it **does not** — the guard exits rather than mounting a patched DEX
+  over a different resource table, which would crash the app at launch.
+
+Writing the harness also caught a bug in the harness itself worth noting: an unquoted heredoc
+expanded `$STUB_VERSION` at generation time when it was unset, so the first run failed with
+`unbound variable`. Running code catches mistakes that reading it does not, in the test as much
+as in the subject.
+
+The check is wired into `build-release.ps1`, so a release build fails if the generated shell
+regresses. It is skipped with a warning where WSL is unavailable.
 
 ### The install result path is executed, not deferred
 
@@ -388,7 +413,7 @@ executed. They assert:
 
 ### Bugs these tests found
 
-Seven real defects were caught by adding these harnesses, all of which would have shipped:
+Eight real defects were caught by adding these harnesses, all of which would have shipped:
 
 1. **`startKoin` was not idempotent.** Recreating the `Application` threw
    `KoinApplicationAlreadyStartedException`, crashing startup. Fixed by guarding on
@@ -426,6 +451,12 @@ app being changed to satisfy a brittle test.
    `active` before the outcome flags, and `active` is only cleared by the caller, so a finished
    run kept its in-progress label. The same `when` block was duplicated in `RunSheet.kt` and had
    the bug independently; both are now one tested function.
+
+8. **The events module reported every install twice.** `hookPackageManagerService` hooked
+   `sendPackageAddedForNewUsers` twice, once labelled `installed` and once `updated`, so a single
+   install bridged two events with contradictory meanings. The host treats both as facts, so it
+   did the work twice and could patch the same app twice. Each platform entry point is now hooked
+   exactly once.
 
 ### A real bug found earlier by the bundle diagnostics
 

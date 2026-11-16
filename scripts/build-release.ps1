@@ -55,6 +55,25 @@ try {
     } else {
         Write-Warning "Build tools not found; skipping signature and component verification."
     }
+
+    # Execute the generated root-mount shell. Reading it is not enough: a syntax error or a
+    # guard that does not exit is invisible until a device fails to boot with the module.
+    $shellCheck = Join-Path $PSScriptRoot 'verify-root-scripts.sh'
+    $scriptDir = Join-Path $root 'app/build/root-scripts'
+    if ((Test-Path $shellCheck) -and (Test-Path $scriptDir)) {
+        Write-Host "`nExecuting the root-mount scripts..."
+        $wsl = Get-Command wsl -ErrorAction SilentlyContinue
+        if ($wsl) {
+            $linuxRoot = '/mnt/' + ($root.Substring(0, 1).ToLower()) + ($root.Substring(2) -replace '\\', '/')
+            $args = "cd $linuxRoot && sed -i 's/\r`$//' scripts/verify-root-scripts.sh && " +
+                "bash scripts/verify-root-scripts.sh app/build/root-scripts/module.prop " +
+                "app/build/root-scripts/post-fs-data.sh app/build/root-scripts/service.sh"
+            & wsl -d kiri -- bash -lc $args
+            if ($LASTEXITCODE -ne 0) { throw "The generated root-mount scripts failed shell verification" }
+        } else {
+            Write-Warning "WSL not available; skipping execution of the root-mount scripts."
+        }
+    }
 } finally {
     Pop-Location
 }

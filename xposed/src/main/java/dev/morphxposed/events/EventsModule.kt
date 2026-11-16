@@ -47,18 +47,28 @@ class EventsModule : IXposedHookLoadPackage {
             lpparam.classLoader
         )
 
+        // Each platform entry point is hooked exactly once. An earlier version hooked
+        // `sendPackageAddedForNewUsers` twice with different event labels, so a single install
+        // produced two bridged events, one claiming "installed" and one "updated". The host
+        // treated both as facts, which doubled the work and could patch the same app twice.
+        //
         // These are the internal entry points the platform itself uses after an install or
         // update completes. Signatures vary between Android releases, so each is hooked
         // independently and a missing one is not fatal.
-        hookIfPresent(clazz, "sendPackageAddedForNewUsers", EVENT_INSTALLED)
-        hookIfPresent(clazz, "sendPackageAddedForNewUsers", EVENT_UPDATED)
-        hookIfPresent(clazz, "sendPackageChangedBroadcast", EVENT_CHANGED)
-        hookIfPresent(clazz, "sendPackageRemovedBroadcast", EVENT_REMOVED)
+        hookOnce(clazz, "sendPackageAddedForNewUsers", EVENT_INSTALLED)
+        hookOnce(clazz, "sendPackageChangedBroadcast", EVENT_CHANGED)
+        hookOnce(clazz, "sendPackageRemovedBroadcast", EVENT_REMOVED)
 
         Log.i(TAG, "MorphXposed events module active in system_server")
     }
 
-    private fun hookIfPresent(clazz: Class<*>, methodName: String, event: String) {
+    /**
+     * Hooks every overload of [methodName] once, reporting [event].
+     *
+     * A method that does not exist on this Android version is skipped rather than treated as an
+     * error, because the internal API differs across releases.
+     */
+    private fun hookOnce(clazz: Class<*>, methodName: String, event: String) {
         val methods = clazz.declaredMethods.filter { it.name == methodName }
         if (methods.isEmpty()) {
             Log.d(TAG, "No $methodName on this Android version; skipping")
@@ -68,11 +78,7 @@ class EventsModule : IXposedHookLoadPackage {
             runCatching {
                 XposedBridge.hookMethod(method, object : XC_MethodHook() {
                     override fun afterHookedMethod(param: MethodHookParam) {
-                        val pkg = param.args
-                            ?.asSequence()
-                            ?.filterIsInstance<String>()
-                            ?.firstOrNull { it.contains('.') && !it.startsWith("/") }
-                            ?: return
+                        val pkg = packageNameArgument(param.args) ?: return
                         notifyHost(pkg, event)
                     }
                 })
@@ -112,6 +118,8 @@ class EventsModule : IXposedHookLoadPackage {
         XposedHelpers.callMethod(activityThread, "getSystemContext") as? Context
     }.getOrNull()
 
+    /** Delegates to [PackageNames], which has no Xposed dependency and is unit-tested. */
+    private fun packageNameArgument(args: Array<Any?>?): String? = PackageNames.fromArguments(args)
     private companion object {
         const val TAG = "MorphXEvents"
 
@@ -128,6 +136,8 @@ class EventsModule : IXposedHookLoadPackage {
         const val PERMISSION_BRIDGE = "dev.morphxposed.permission.BRIDGE"
 
         const val EVENT_INSTALLED = "installed"
+        // "updated" is still accepted by the host; the module no longer emits it because
+        // sendPackageAddedForNewUsers cannot distinguish an install from a replacement.
         const val EVENT_UPDATED = "updated"
         const val EVENT_REMOVED = "removed"
         const val EVENT_CHANGED = "changed"
