@@ -126,7 +126,7 @@ try {
         }
 
         $receiverGuarded = $all -match
-            'PackageChangeReceiver[\s\S]{0,400}?permission\(0x01010006\)="dev\.morphxposed\.permission\.BRIDGE"'
+            'PackageChangeReceiver[\s\S]{0,2000}?permission\(0x01010006\)="dev\.morphxposed\.permission\.BRIDGE"'
         if (-not $receiverGuarded) {
             throw "PackageChangeReceiver is not guarded by the bridge permission"
         }

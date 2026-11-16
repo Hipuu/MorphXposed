@@ -167,13 +167,15 @@ class RootMountInstaller(private val context: Context) : ApkInstaller {
     ): InstallResult = withContext(Dispatchers.IO) {
         if (!RootShell.hasRoot()) return@withContext InstallResult.NotPermitted(strategy)
 
-        val moduleId = "morphxposed_${packageName.replace('.', '_')}"
-        val moduleDir = "/data/adb/modules/$moduleId"
+        // All script/path generation lives in RootModuleScripts, which is unit-tested, so the
+        // shell this produces is inspectable without a rooted device.
+        val moduleDir = RootModuleScripts.moduleDir(packageName)
         val stagedApk = "$moduleDir/$packageName.apk"
+        val version = expectedStockVersionName ?: "unknown"
 
         try {
             // 1. Create the module directory and push the patched APK.
-            RootShell.run("mkdir -p $moduleDir") { it.isSuccess }
+            RootShell.run("mkdir -p ${RootModuleScripts.quote(moduleDir)}") { it.isSuccess }
                 .takeIf { it } ?: return@withContext InstallResult.Failure(
                 strategy, "Could not create module directory (is /data/adb writable?)"
             )
@@ -184,15 +186,18 @@ class RootMountInstaller(private val context: Context) : ApkInstaller {
             }
 
             // 2. Write module.prop, post-fs-data.sh and service.sh.
-            val version = expectedStockVersionName ?: "unknown"
-            val moduleProp = buildModuleProp(moduleId, packageName, version)
+            val moduleProp = RootModuleScripts.moduleProp(packageName, version)
             if (!RootShell.writeText("$moduleDir/module.prop", moduleProp)) {
                 return@withContext InstallResult.Failure(strategy, "Could not write module.prop")
             }
-            if (!RootShell.writeText("$moduleDir/post-fs-data.sh", POST_FS_DATA)) {
+            if (!RootShell.writeText("$moduleDir/post-fs-data.sh", RootModuleScripts.postFsData())) {
                 return@withContext InstallResult.Failure(strategy, "Could not write post-fs-data.sh")
             }
-            if (!RootShell.writeText("$moduleDir/service.sh", serviceScript(packageName, version))) {
+            if (!RootShell.writeText(
+                    "$moduleDir/service.sh",
+                    RootModuleScripts.service(packageName, version)
+                )
+            ) {
                 return@withContext InstallResult.Failure(strategy, "Could not write service.sh")
             }
 
@@ -200,81 +205,22 @@ class RootMountInstaller(private val context: Context) : ApkInstaller {
             RootShell.run(
                 "chmod 0755 $moduleDir/post-fs-data.sh $moduleDir/service.sh",
                 "chown 0:0 $moduleDir/*",
-                "chmod 0644 $moduleDir/module.prop $moduleDir/$packageName.apk",
+                "chmod 0644 $moduleDir/module.prop $stagedApk",
                 "chcon u:object_r:apk_data_file:s0 $stagedApk 2>/dev/null || true"
             ) { true }
 
             // 4. Apply immediately so the user does not have to reboot.
-            val mount = RootShell.run(buildMountCommand(moduleDir, packageName)) { it.isSuccess }
+            val mount = RootShell.run(RootModuleScripts.applyNowCommand(packageName)) { it.isSuccess }
             if (!mount) {
                 // The module is in place; a reboot will mount it. Report as pending rather than failed.
                 return@withContext InstallResult.PendingUserAction(strategy, null)
             }
 
-            RootShell.run("am force-stop $packageName") { true }
+            RootShell.run("am force-stop ${RootModuleScripts.quote(packageName)}") { true }
             InstallResult.Success(strategy)
         } catch (t: Throwable) {
             InstallResult.Failure(strategy, t.message ?: t.javaClass.simpleName)
         }
-    }
-
-    private fun buildModuleProp(moduleId: String, packageName: String, version: String) = buildString {
-        appendLine("id=$moduleId")
-        appendLine("name=MorphXposed mount for $packageName")
-        appendLine("version=$version")
-        appendLine("versionCode=1")
-        appendLine("author=MorphXposed")
-        appendLine("description=Mounts the Morphe-patched APK over $packageName at boot")
-    }
-
-    private fun serviceScript(packageName: String, version: String): String = """
-        #!/system/bin/sh
-        # Written by MorphXposed. Mounts the patched APK over the stock one once boot completes.
-        MODDIR=${'$'}{0%/*}
-        PKG=$packageName
-        EXPECTED_VERSION=$version
-
-        until [ "${'$'}(getprop sys.boot_completed)" = "1" ]; do sleep 3; done
-
-        STOCK=${'$'}(pm path "${'$'}PKG" 2>/dev/null | grep base | head -n 1 | sed 's/package://g')
-        [ -z "${'$'}STOCK" ] && exit 0
-
-        ACTUAL=${'$'}(dumpsys package "${'$'}PKG" 2>/dev/null | grep -m1 versionName= | sed 's/.*versionName=//' | tr -d '\r')
-        if [ -n "${'$'}EXPECTED_VERSION" ] && [ "${'$'}EXPECTED_VERSION" != "unknown" ] && [ "${'$'}ACTUAL" != "${'$'}EXPECTED_VERSION" ]; then
-            # The stock app changed; mounting a mismatched APK would crash it.
-            exit 0
-        fi
-
-        umount -l "${'$'}STOCK" 2>/dev/null
-        mount -o bind "${'$'}MODDIR/${'$'}PKG.apk" "${'$'}STOCK" 2>/dev/null
-        am force-stop "${'$'}PKG" 2>/dev/null
-    """.trimIndent() + "\n"
-
-    private fun buildMountCommand(moduleDir: String, packageName: String) = """
-        STOCK=${'$'}(pm path $packageName 2>/dev/null | grep base | head -n 1 | sed 's/package://g'); \
-        if [ -n "${'$'}STOCK" ]; then \
-          umount -l "${'$'}STOCK" 2>/dev/null; \
-          mount -o bind $moduleDir/$packageName.apk "${'$'}STOCK"; \
-        else exit 1; fi
-    """.trimIndent()
-
-    private companion object {
-        /**
-         * Mounted before the package manager scans apps, so the very first launch after boot
-         * already sees the patched APK.
-         */
-        val POST_FS_DATA = """
-            #!/system/bin/sh
-            # Written by MorphXposed.
-            MODDIR=${'$'}{0%/*}
-            for APK in "${'$'}MODDIR"/*.apk; do
-                [ -f "${'$'}APK" ] || continue
-                PKG=${'$'}(basename "${'$'}APK" .apk)
-                STOCK=${'$'}(pm path "${'$'}PKG" 2>/dev/null | grep base | head -n 1 | sed 's/package://g')
-                [ -z "${'$'}STOCK" ] && continue
-                mount -o bind "${'$'}APK" "${'$'}STOCK" 2>/dev/null
-            done
-        """.trimIndent() + "\n"
     }
 }
 

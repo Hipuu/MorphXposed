@@ -74,7 +74,9 @@ BUILD SUCCESSFUL
 | `OrchestratorLogicTest` | 8 | 0 | Robolectric + Room |
 | `SourceAndReceiverTest` | 7 | 0 | Robolectric + Room |
 | `LsposedBridgeContractTest` | 5 | 0 | Robolectric + Room |
-| **Total** | **78** | **0** | |
+| `RootModuleScriptsTest` | 9 | 0 | JVM (shell generation) |
+| `DependencyGraphTest` | 6 | 0 | Robolectric + Koin |
+| **Total** | **93** | **0** | |
 
 ### Compose UI is actually composed
 
@@ -137,6 +139,37 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
 
+### The dependency graph resolves, and the root-mount shell is inspected
+
+Two more "compiles fine, fails on the device" areas are now covered.
+
+`DependencyGraphTest` boots the real Koin graph and asks for every type the app asks for.
+A DI graph is the one thing that can be entirely broken while all unit tests pass, because
+each collaborator is constructed by hand in tests; a missing binding only surfaces when a
+screen is first opened. It also asserts that collaborators are singletons, since a second
+`PatchEngine` or database instance would silently split state between the coordinator and
+the repository.
+
+`RootModuleScriptsTest` inspects the shell that is written into `/data/adb/modules/...`.
+This is the riskiest output the app produces and it cannot be exercised without root, so it
+is verified by inspection:
+
+* the module id is a legal directory name and cannot contain a path separator;
+* `module.prop` carries every key the root manager needs, and a value containing a newline
+  cannot inject an extra key;
+* `service.sh` keeps the version guard — it compares the installed version and exits
+  instead of mounting a mismatch, because a patched DEX over a different resource table
+  crashes at launch;
+* every interpolated value is single-quoted, and `quote()` escapes an embedded quote;
+* the apply-now command exits non-zero when the stock path or APK is missing rather than
+  mounting nothing.
+
+Extracting that generator out of `RootMountInstaller` was necessary to test it at all, and
+it immediately paid for itself: `moduleId` replaced only `.` and `-`, so a package name
+containing `/` would have produced a module path that escaped `/data/adb/modules`. Package
+names on a device are not attacker-controlled in a practical sense, but the invariant is
+now explicit and enforced by sanitizing everything outside `[A-Za-z0-9_]`.
+
 ### The LSPosed bridge is verified to actually connect
 
 `LsposedBridgeContractTest` exists because the bridge was **silently broken** and nothing
@@ -184,7 +217,7 @@ executed. They assert:
 
 ### Bugs these tests found
 
-Four real defects were caught by adding these harnesses, all of which would have shipped:
+Five real defects were caught by adding these harnesses, all of which would have shipped:
 
 1. **`startKoin` was not idempotent.** Recreating the `Application` threw
    `KoinApplicationAlreadyStartedException`, crashing startup. Fixed by guarding on
@@ -203,6 +236,15 @@ Four real defects were caught by adding these harnesses, all of which would have
    wrote a redundant temporary copy, so copying a 100 MB patched APK transiently needed over
    200 MB — enough to OOM a low-end phone mid-install. It now streams the file into the root
    shell and drains the child's output so it cannot block on a full pipe.
+
+5. **`moduleId` did not sanitize path separators.** It replaced `.` and `-` only, so a package
+   name containing `/` would have produced a module directory outside `/data/adb/modules`.
+   Now everything outside `[A-Za-z0-9_]` is replaced.
+
+Additionally, the bridge verification added in the previous round was itself too strict: its
+`PackageChangeReceiver`-to-`permission` match allowed only 400 characters between the two
+attributes, so a legitimate manifest failed the check. The window was widened rather than the
+app being changed to satisfy a brittle test.
 
 ### A real bug found earlier by the bundle diagnostics
 
