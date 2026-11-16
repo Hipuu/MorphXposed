@@ -1,0 +1,3 @@
+# Classes listed here are loaded by LSPosed as module entry points.
+# One class name per line.
+dev.morphxposed.events.EventsModule

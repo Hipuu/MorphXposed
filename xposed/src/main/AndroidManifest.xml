@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      LSPosed module metadata, read by LSPosed to list and describe the module.
+      The three xposedmodule/xposeddescription/xposedminversion meta-data entries are
+      what make LSPosed recognise this APK as a module rather than a plain app.
+    -->
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/module_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.DeviceDefault">
+
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="Forwards app install and update events to MorphXposed so automated patching reacts immediately. Does not modify any app." />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="82" />
+        <!-- Tells LSPosed this module targets system_server only. -->
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposed_scope" />
+
+        <activity
+            android:name=".ModuleInfoActivity"
+            android:exported="true"
+            android:label="@string/module_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Only system_server is scoped: this module observes package manager events. -->
+    <string-array name="xposed_scope">
+        <item>android</item>
+    </string-array>
+</resources>
