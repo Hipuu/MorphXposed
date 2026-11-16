@@ -67,13 +67,54 @@ BUILD SUCCESSFUL
 | `BundleShapeDiagnosticsTest` | 1 | 0 | JVM |
 | `RealBundleIntegrationTest` | 5 | 0 | JVM + real bundle |
 | `EndToEndPatchTest` | 2 | 0 | JVM + real engine |
-| `DatabaseAndScannerTest` | 6 | 0 | **Robolectric (real Android)** |
-| `SettingsAndScannerTest` | 7 | 0 | **Robolectric (real Android)** |
-| **Total** | **36** | **0** | |
+| `DatabaseAndScannerTest` | 6 | 0 | Robolectric |
+| `SettingsAndScannerTest` | 7 | 0 | Robolectric |
+| `ScreenCompositionTest` | 14 | 0 | Robolectric + Compose |
+| `WorkSchedulingTest` | 8 | 0 | Robolectric + WorkManager |
+| **Total** | **58** | **0** | |
 
-The Robolectric suites run the real Android framework on the JVM, so Room schema creation,
-DAO queries, `DataStore` read/write, and `PackageManager` interaction are genuinely
-executed rather than merely compiled. They assert:
+### Compose UI is actually composed
+
+`ScreenCompositionTest` renders all six screens through a real
+`createComposeRule`, then asserts on what a user would see and do:
+
+* **Dashboard** — metric tiles, app rows, the empty-run hint, and a failed run
+  showing its error.
+* **Apps** — a compatible app shows a `Compatible` chip and an enabled `Patch`
+  action; an unsupported version shows `Version unsupported` with the button
+  **disabled**; the per-app `Auto` switch is clickable and reports the right
+  package and new value.
+* **Patches** — source name, official badge, installed tag, and a surfaced source
+  error.
+* **Automation** — switches reflect settings and are interactive; clicking
+  "Patch newly installed apps" reports `true`.
+* **Logs** — a run row with its status, and the empty state.
+* **Settings** — installer choices, the built-in source, and both installer
+  caveats (the data-loss warning for session installs, the mount explanation for
+  root mount).
+
+Composition is run at a phone-sized qualifier (`w411dp-h891dp`) so lazy-list
+content is laid out rather than clipped, and assertions scroll where needed.
+
+### WorkManager scheduling is actually dispatched
+
+`WorkSchedulingTest` initialises a real test `WorkManager` and inspects the
+enqueued work:
+
+* the periodic check is enqueued exactly once, with a `CONNECTED` constraint;
+* rescheduling (6h -> 3h -> 12h) replaces rather than duplicating;
+* cancellation removes it;
+* an interval of `0` is clamped and does not throw;
+* auto-patch work is enqueued per package, keyed by package name;
+* re-enqueueing the same package replaces instead of stacking;
+* toggling the setting on then off round-trips through real scheduling.
+
+### Earlier Robolectric coverage
+
+`DatabaseAndScannerTest` and `SettingsAndScannerTest` run the real Android
+framework on the JVM, so Room schema creation, DAO queries, `DataStore`
+read/write, `PackageManager` interaction and Application startup are genuinely
+executed. They assert:
 
 * the shipped defaults are safe — automatic patching is **off** for both install and update,
   and the installer defaults to the unprivileged session strategy;
@@ -90,15 +131,20 @@ executed rather than merely compiled. They assert:
 
 ### Bugs these tests found
 
-Two real defects were caught by adding Robolectric, both of which would have shipped:
+Three real defects were caught by adding these harnesses, all of which would have shipped:
 
 1. **`startKoin` was not idempotent.** Recreating the `Application` threw
-   `KoinApplicationAlreadyStartedException`, crashing startup on a second creation. Fixed by
-   guarding on `GlobalContext.getOrNull()`.
+   `KoinApplicationAlreadyStartedException`, crashing startup. Fixed by guarding on
+   `GlobalContext.getOrNull()`.
 
-2. **A test-isolation leak exposed a design gap.** `DataStore` is a per-file singleton, so
-   settings survived between tests. Fixing the test required adding
-   `SettingsStore.resetToDefaults()`, which is now also available to the app.
+2. **`currentBundleSha()` returned the wrong bundle.** It read whichever source was listed
+   first, so the skip-if-unchanged guard could skip a repatch even though the bundle that
+   patches that app had changed. `resolveBundle` now returns a `ResolvedBundle` carrying its
+   own source id, checksum and tag.
+
+3. **`PatchEvent.Done` implied installation succeeded** even when the installer was
+   unavailable or failed, so an exported-only APK was reported as installed. `Done` now
+   carries `installed`/`pendingInstall`, and such runs are recorded as `PATCHED`.
 
 ### A real bug found earlier by the bundle diagnostics
 
@@ -237,20 +283,22 @@ with an unsigned or structurally broken APK.
 `HypervisorPlatform` is disabled, so the Android Emulator cannot run with acceleration
 here.
 
-Robolectric closes part of that gap by running real Android framework code on the JVM
-(section 3), which executes Room, DataStore, `PackageManager`, Application startup, and the
-installer's parameter construction. What it still cannot prove, and what remains
-**unverified**:
+Robolectric closes much of that gap by running real Android framework code on the JVM
+(section 3): composition and click handling for all six screens, WorkManager scheduling,
+Room, DataStore, `PackageManager`, and Application startup are genuinely executed. What it
+still cannot prove, and what remains **unverified**:
 
-* Compose UI rendering and navigation (no composition is exercised),
-* `WorkManager` scheduling actually being dispatched by the system scheduler,
-* the session installer's `PendingIntent` round-trip through a real `PackageInstaller`,
+* the session installer's `PendingIntent` round-trip through a real `PackageInstaller`
+  (the session is created and committed, but the platform's confirmation UI and result
+  callback need a device),
 * root-mount module mounting at boot by a real root manager,
-* the LSPosed module hooking `PackageManagerService` on a live framework.
+* the LSPosed module hooking `PackageManagerService` on a live framework,
+* how the Compose screens look pixel-for-pixel on real hardware.
 
 Those paths are implemented against the documented platform APIs, and the manifest and dex
-were verified to agree (section 6), but "compiled, packaged and statically verified" is a
-weaker claim than "ran on a device", and is reported as such rather than overstated.
+were verified to agree (section 6), but "compiled, packaged, composed and statically
+verified" is a weaker claim than "ran on a device", and is reported as such rather than
+overstated.
 
 **Patching a real YouTube/Reddit APK.** Those APKs are copyrighted and were not downloaded.
 The engine was instead proven on a synthetic APK (section 4), which exercises the same code
