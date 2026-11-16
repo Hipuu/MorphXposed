@@ -87,8 +87,9 @@ BUILD SUCCESSFUL
 | `SessionInstallerTest` | 5 | 0 | Robolectric + ShadowPackageInstaller |
 | `UpdateCheckPlanTest` | 4 | 0 | JVM (pure functions) |
 | `PackageNamesTest` (module) | 7 | 0 | JVM (module) |
+| `DiscoverThenPatchEndToEndTest` | 5 | 0 | Robolectric + ShadowPackageManager |
 | Root-mount shell execution | 14 checks | 0 | **real bash via WSL** |
-| **Total** | **185** | **0** (0 skipped) | |
+| **Total** | **190** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -150,6 +151,30 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### Discovery is exercised against a package the platform believes is installed
+
+I had listed on-device testing as the boundary, but `ShadowPackageManager.installPackage` makes
+it possible to register a package so `PackageManager` reports it as installed.
+`DiscoverThenPatchEndToEndTest` uses that to drive the app's own wiring end to end, without a
+device:
+
+* a registered YouTube package is **discovered** by `AppScanner` with its version name, version
+  code, and APK path;
+* a registered package the bundle does not support is **not** surfaced;
+* a version bump is observable to the discovery layer — without that, the repatch trigger could
+  never fire;
+* the **real `PatchOrchestrator`**, given a genuine installed app and a source with no cached
+  bundle, fails cleanly with a message naming the cause, rather than hanging or reporting
+  success.
+
+The last one is the closest thing to the real flow this environment allows: a real orchestrator,
+a real database, a real scanner, and a package the platform insists is installed.
+
+What it still cannot do is run the patcher itself, because `loadPatchesFromJar` needs a
+`DexClassLoader` that Robolectric does not provide. That boundary is covered instead by
+`PatchThenSignPipelineTest`, which runs the real engine on a plain JVM. Between the two, every
+step of the pipeline is executed somewhere; no step is only read.
 
 ### The root-mount scripts are executed in a real shell
 
