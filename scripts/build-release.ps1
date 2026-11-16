@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 Push-Location $root
 try {
-    Write-Host "Building MorphXposed release artifacts…"
+    Write-Host "Building MorphXposed release artifacts..."
     & ./gradlew.bat :app:assembleRelease :xposed:assembleRelease --no-daemon
     if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE" }
 
@@ -31,7 +31,7 @@ try {
             Copy-Item $src (Join-Path $out $t.Name) -Force
             Write-Host "  $($t.Name)"
         } else {
-            Write-Warning "Missing $($t.Src) — it is unsigned; sign it with apksigner first."
+            Write-Warning "Missing $($t.Src) - it is unsigned; sign it with apksigner first."
         }
     }
 
@@ -41,7 +41,7 @@ try {
     # Verify each artifact before it is considered done: signed, and every manifest component
     # present in the dex. This catches the class of failure that only shows up as a crash on
     # launch, without needing a device.
-    Write-Host "`nVerifying artifacts…"
+    Write-Host "`nVerifying artifacts..."
     $buildTools = if ($env:ANDROID_HOME) { Join-Path $env:ANDROID_HOME 'build-tools/37.0.0' } else { $null }
     if ($buildTools -and (Test-Path $buildTools)) {
         foreach ($apk in Get-ChildItem $out -Filter *.apk) {
