@@ -98,10 +98,24 @@ Or set `GITHUB_ACTOR` / `GITHUB_TOKEN` in the environment.
 ### Build
 
 ```bash
-./gradlew :app:assembleDebug        # debug APK
-./gradlew :app:testDebugUnitTest    # unit + integration tests
-./scripts/build-release.ps1         # signed release APKs into dist/
+./gradlew :app:assembleDebug     # debug APK
+./scripts/run-tests.ps1          # every suite, always re-run (see below)
+./scripts/build-release.ps1      # signed release APKs into dist/
 ```
+
+### Running the tests
+
+The suites that use the official Morphe bundle skip themselves when
+`testdata/patches.mpp` is absent, and **a skip is not a pass**. Fetch the fixture first if you
+want the full run:
+
+```bash
+./scripts/fetch-testdata.ps1     # downloads + checksum-verifies the bundle
+./scripts/run-tests.ps1 -WithBundle
+```
+
+`run-tests.ps1` always passes `--rerun-tasks`. Gradle will otherwise replay cached results and
+report success without executing anything, which makes a "0 skipped" summary meaningless.
 
 Generate a signing keystore once with `./scripts/gen-keystore.ps1`. The keystore is
 **never committed** — it is the app's update identity.

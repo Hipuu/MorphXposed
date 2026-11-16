@@ -35,7 +35,40 @@ present and usable.
 
 ---
 
-## 2. Bundle integrity
+## 1b. A fresh clone builds, and the numbers depend on the fixture
+
+Verified by cloning the repository to a clean directory (no `local.properties`, no keystore, no
+bundle) and building it with only `JAVA_HOME`, `ANDROID_HOME`, `GITHUB_ACTOR` and `GITHUB_TOKEN`
+set:
+
+```
+$ git clone <repo> MorpheXposed-fresh
+$ ./gradlew :app:assembleDebug
+BUILD SUCCESSFUL          # app-debug.apk, 35.6 MB
+```
+
+So deliverable 1 holds: the committed project builds from nothing but its own sources plus the
+documented environment.
+
+**A correction to this document.** An earlier revision claimed the suite reports "0 skipped" in a
+bare checkout. That was wrong: Gradle had replayed cached test results instead of executing. With
+`--rerun-tasks`, a clone without `testdata/patches.mpp` correctly reports **12 skips** — the
+suites that need the official bundle (`RealBundleIntegrationTest` 5, `EndToEndPatchTest` 2,
+`PatchThenSignPipelineTest` 3, and two others). Those tests skip themselves via `assumeTrue`, and
+**a skip is not a pass**.
+
+`scripts/run-tests.ps1` now prevents both mistakes: it always passes `--rerun-tasks`, prints the
+skip count prominently, and fails when `-WithBundle` is given but tests still skip.
+
+With the bundle present, which is the configuration the headline figures refer to:
+
+```
+$ ./scripts/run-tests.ps1
+  total   : 190
+  failures: 0
+  skipped : 0
+```
+
 
 Verifies the SHA-256 path against the real release.
 
