@@ -2,6 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
+      The bridge permission is declared by the MorphXposed app as signature-level. This module
+      is signed with the same key, so it is granted it; that is what lets its broadcast reach
+      the app's receiver and nothing else's.
+    -->
+    <uses-permission android:name="dev.morphxposed.permission.BRIDGE" />
+
+    <!--
       LSPosed module metadata, read by LSPosed to list and describe the module.
       The three xposedmodule/xposeddescription/xposedminversion meta-data entries are
       what make LSPosed recognise this APK as a module rather than a plain app.

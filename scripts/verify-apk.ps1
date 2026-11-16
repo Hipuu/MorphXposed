@@ -6,7 +6,9 @@
 # using dexdump against the produced APK.
 param(
     [Parameter(Mandatory = $true)][string]$Apk,
-    [string]$BuildTools = "$env:ANDROID_HOME/build-tools/37.0.0"
+    [string]$BuildTools = "$env:ANDROID_HOME/build-tools/37.0.0",
+    # The events module does not declare the bridge receiver, so it is exempt from that check.
+    [switch]$SkipBridgeCheck
 )
 
 $ErrorActionPreference = 'Stop'
@@ -100,6 +102,37 @@ try {
     }
 
     Write-Host "OK: every manifest component resolves to a class in the dex" -ForegroundColor Green
+
+    # Guard the LSPosed bridge contract in the built manifest. The bridge was once silently
+    # non-functional, so a release build must fail if the permission or action disappears.
+    if (-not $SkipBridgeCheck) {
+        Write-Host "Checking LSPosed bridge contract..."
+        $all = $tree -join "`n"
+
+        $declaresPermission = $all -match 'dev\.morphxposed\.permission\.BRIDGE'
+        if (-not $declaresPermission) {
+            throw "The bridge permission dev.morphxposed.permission.BRIDGE is not declared"
+        }
+
+        # protectionLevel is a bit field; signature == 0x2.
+        $signatureGuarded = $all -match 'protectionLevel\(0x01010009\)=0x00000002'
+        if (-not $signatureGuarded) {
+            throw "The bridge permission is not signature-protected (expected protectionLevel=0x2)"
+        }
+
+        $hasBridgeAction = $all -match 'dev\.morphxposed\.LSPOSED_PACKAGE_EVENT'
+        if (-not $hasBridgeAction) {
+            throw "The receiver does not filter for dev.morphxposed.LSPOSED_PACKAGE_EVENT"
+        }
+
+        $receiverGuarded = $all -match
+            'PackageChangeReceiver[\s\S]{0,400}?permission\(0x01010006\)="dev\.morphxposed\.permission\.BRIDGE"'
+        if (-not $receiverGuarded) {
+            throw "PackageChangeReceiver is not guarded by the bridge permission"
+        }
+
+        Write-Host "OK: bridge permission is signature-guarded and the receiver filters its action" -ForegroundColor Green
+    }
 } finally {
     Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 }

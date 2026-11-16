@@ -49,7 +49,8 @@ try {
             if ($LASTEXITCODE -ne 0) { throw "$($apk.Name) is not correctly signed" }
             Write-Host "  signed: $($apk.Name)"
 
-            & (Join-Path $PSScriptRoot 'verify-apk.ps1') -Apk $apk.FullName -BuildTools $buildTools
+            & (Join-Path $PSScriptRoot 'verify-apk.ps1') -Apk $apk.FullName -BuildTools $buildTools `
+                -SkipBridgeCheck:($apk.Name -like '*Events*')
         }
     } else {
         Write-Warning "Build tools not found; skipping signature and component verification."

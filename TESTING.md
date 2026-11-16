@@ -73,7 +73,8 @@ BUILD SUCCESSFUL
 | `WorkSchedulingTest` | 8 | 0 | Robolectric + WorkManager |
 | `OrchestratorLogicTest` | 8 | 0 | Robolectric + Room |
 | `SourceAndReceiverTest` | 7 | 0 | Robolectric + Room |
-| **Total** | **73** | **0** | |
+| `LsposedBridgeContractTest` | 5 | 0 | Robolectric + Room |
+| **Total** | **78** | **0** | |
 
 ### Compose UI is actually composed
 
@@ -135,6 +136,31 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### The LSPosed bridge is verified to actually connect
+
+`LsposedBridgeContractTest` exists because the bridge was **silently broken** and nothing
+caught it until it was traced by hand. Three independent mismatches each dropped every event:
+
+1. the module sent `dev.morphxposed.LSPOSED_PACKAGE_EVENT`, which the receiver did not filter for;
+2. the receiver demanded a `package:` data URI, and the module's intent carries none, so it
+   returned before doing anything;
+3. the extra was named `event` on one side and `action` on the other.
+
+Fixed by giving the receiver an explicit bridge route keyed on the action, reading the package
+from its extra, and pinning both sides to one documented contract. The bridge is now also
+guarded by a **signature-level permission** (`dev.morphxposed.permission.BRIDGE`), so only an
+APK signed with this app's key — in practice only the events module — can drive it. Verified in
+the built manifests: the app declares the permission at `protectionLevel=signature` and the
+module requests it.
+
+The tests pin the wire format (action, both extra names, permission) so a rename on either side
+fails a test instead of silently orphaning the other APK, and they confirm a bridge removal
+reaches the receiver and drops the row while malformed and unknown-name intents are ignored.
+
+`verify-apk.ps1` was also extended to catch the class of defect this exposed: the declared
+receiver must resolve to a real class *and* the manifest must declare the bridge permission and
+action, so a regression here fails the release build.
 
 ### Earlier Robolectric coverage
 

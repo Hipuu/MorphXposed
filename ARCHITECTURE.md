@@ -82,7 +82,8 @@ use `JobScheduler`/`WorkManager` heuristics. An LSPosed module hooked into
 `system_server`'s `PackageManagerService` sees these events authoritatively and
 in real time.
 
-So MorphXposed ships **two artifacts**:
+So MorphXposed ships **two artifacts**, connected by a signature-guarded broadcast
+(`dev.morphxposed.LSPOSED_PACKAGE_EVENT`, permission `dev.morphxposed.permission.BRIDGE`):
 
 | Artifact | Purpose |
 |---|---|

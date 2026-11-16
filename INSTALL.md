@@ -122,6 +122,12 @@ adb logcat | grep MorphXEvents
 You should see `MorphXposed events module active in system_server`, then
 `Forwarded <event> for <package>` lines as apps change.
 
+The bridge between the two APKs is a broadcast guarded by the signature-level
+permission `dev.morphxposed.permission.BRIDGE`. Both APKs are signed with the same key,
+which is what grants the module permission to reach the main app, and what stops any other
+app from driving it. If the module and the app were signed with different keys, the bridge
+would be silently refused; install both from the same build.
+
 The module app's launcher icon opens a screen restating the activation steps. LSPosed
 provides no API for a module to read its own activation state, so the app cannot detect it
 for you — this is a platform limitation, not an omission.

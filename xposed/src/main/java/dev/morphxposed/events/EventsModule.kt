@@ -87,17 +87,17 @@ class EventsModule : IXposedHookLoadPackage {
     private fun notifyHost(packageName: String, event: String) {
         Handler(Looper.getMainLooper()).post {
             runCatching {
-                val ctx = android.app.AndroidAppHelper.currentApplication()
-                    ?: systemContext()
-                    ?: return@runCatching
+                val ctx = systemContext() ?: return@runCatching
 
+                // The intent is explicit (setPackage) and carries the app's signature permission,
+                // so only the real MorphXposed can receive it.
                 val intent = Intent(ACTION_EVENT).apply {
                     setPackage(HOST_PACKAGE)
                     putExtra(EXTRA_PACKAGE, packageName)
                     putExtra(EXTRA_EVENT, event)
                     addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
                 }
-                ctx.sendBroadcast(intent)
+                ctx.sendBroadcast(intent, PERMISSION_BRIDGE)
                 Log.d(TAG, "Forwarded $event for $packageName")
             }.onFailure { Log.d(TAG, "Forward failed: ${it.message}") }
         }
@@ -118,9 +118,14 @@ class EventsModule : IXposedHookLoadPackage {
         /** The main app's package; the debug variant appends `.debug`. */
         const val HOST_PACKAGE = "dev.morphxposed"
 
+        /**
+         * Contract with [dev.morphxposed.automation.PackageChangeReceiver]: the action, both
+         * extra names, and the signature permission must stay identical on both sides.
+         */
         const val ACTION_EVENT = "dev.morphxposed.LSPOSED_PACKAGE_EVENT"
         const val EXTRA_PACKAGE = "package"
         const val EXTRA_EVENT = "event"
+        const val PERMISSION_BRIDGE = "dev.morphxposed.permission.BRIDGE"
 
         const val EVENT_INSTALLED = "installed"
         const val EVENT_UPDATED = "updated"

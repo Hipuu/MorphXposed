@@ -28,6 +28,17 @@
         <package android:name="com.reddit.frontpage" />
     </queries>
 
+    <!--
+      Signature-level permission guarding the LSPosed event bridge. Declaring it here means
+      only apps signed with this app's key can hold it, which in practice is only the
+      MorphXposed Events module.
+    -->
+    <permission
+        android:name="dev.morphxposed.permission.BRIDGE"
+        android:protectionLevel="signature" />
+
+    <uses-permission android:name="dev.morphxposed.permission.BRIDGE" />
+
     <application
         android:name=".MorphXposedApp"
         android:allowBackup="true"
@@ -50,19 +61,25 @@
 
         <!--
           Receives package add/replace/remove so newly installed or updated apps can be
-          picked up without waiting for the periodic worker. This broadcast is not
-          delivered to manifest receivers on Android 8.0+ for most apps, which is exactly
-          why the LSPosed module exists as an alternative signal source; the WorkManager
-          periodic job is the guaranteed fallback.
+          picked up without waiting for the periodic worker.
+
+          The platform does not deliver PACKAGE_* broadcasts to manifest receivers of ordinary
+          apps on Android 8.0+, so the reliable real-time source is the optional LSPosed module.
+          It sends dev.morphxposed.LSPOSED_PACKAGE_EVENT, guarded by a signature permission.
+          The WorkManager periodic check remains the guaranteed fallback for both.
         -->
         <receiver
             android:name=".automation.PackageChangeReceiver"
-            android:exported="false">
+            android:exported="true"
+            android:permission="dev.morphxposed.permission.BRIDGE">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_ADDED" />
                 <action android:name="android.intent.action.PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.PACKAGE_REMOVED" />
                 <data android:scheme="package" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="dev.morphxposed.LSPOSED_PACKAGE_EVENT" />
             </intent-filter>
         </receiver>
 
