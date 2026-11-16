@@ -82,7 +82,8 @@ BUILD SUCCESSFUL
 | `BackupRollbackTest` | 8 | 0 | Robolectric + Room |
 | `BundleDownloadVerificationTest` | 12 | 0 | Robolectric + MockWebServer |
 | `RunPresentationTest` | 19 | 0 | JVM (pure functions) |
-| **Total** | **149** | **0** (0 skipped) | |
+| `AutoPatchPolicyTest` | 11 | 0 | JVM (pure functions) |
+| **Total** | **160** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -144,6 +145,31 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### The gate in front of automatic patching is tested
+
+`AutoPatchPolicyTest` covers the rule that decides whether a trigger may patch a given app.
+Both failure directions are costly: too permissive patches an app the user never opted into;
+too strict means automation silently never runs, with nothing telling the user why.
+
+The rule was an inline `when` inside a coroutine in `PatchCoordinator`, reachable only with a
+database and a running scope. It is now `AutoPatchPolicy.decide`, and every trigger/flag
+combination is checked:
+
+* a **default install patches nothing** — all four automatic triggers refuse an app that is not
+  opted in, which is the property the whole automation design rests on;
+* a manual run is allowed even with automation off, because pressing Patch is consent, but a
+  **hidden** app is refused for every trigger including manual;
+* the install and update triggers each require **both** the global switch and the per-app
+  opt-in, and enabling one switch does not enable the other;
+* patch-update and periodic triggers depend only on the per-app opt-in, since they run over the
+  opted-in set;
+* batch selection returns exactly the right apps for a periodic versus a manual run;
+* every refusal renders a non-empty explanation.
+
+The extraction also fixed a reporting defect: the coordinator used one hardcoded string,
+"Automatic patching is off for this app", for *every* reason — including a hidden app and a
+disabled global trigger. The user now sees which condition actually applied.
 
 ### The text the user actually reads is tested
 

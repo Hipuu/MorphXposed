@@ -87,16 +87,11 @@ class PatchCoordinator(
                 continue
             }
 
-            // Whether this trigger is allowed to touch this app.
-            val eligible = when (reason) {
-                TriggerReason.MANUAL -> true
-                TriggerReason.APP_INSTALLED -> app.autoPatchEnabled && snap.autoPatchOnInstall
-                TriggerReason.APP_UPDATED -> app.autoPatchEnabled && snap.autoPatchOnUpdate
-                TriggerReason.PATCHES_UPDATED -> app.autoPatchEnabled
-                TriggerReason.PERIODIC -> app.autoPatchEnabled
-            }
-            if (!eligible) {
-                skipped += app.label to "Automatic patching is off for this app"
+            // Whether this trigger is allowed to touch this app. The rule lives in
+            // AutoPatchPolicy so every combination is tested; this call site only reports it.
+            val decision = AutoPatchPolicy.decide(app, reason, snap)
+            if (!decision.isAllowed) {
+                skipped += app.label to decision.describe()
                 continue
             }
 
