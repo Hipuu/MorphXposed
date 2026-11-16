@@ -33,7 +33,10 @@ class UpdateCheckWorker(
 
         return runCatching {
             val snap = settings.snapshot()
-            if (!snap.autoCheckForPatchUpdates) return Result.success()
+            // The gate is tested in UpdateCheckPlan rather than reached only through a worker.
+            if (UpdateCheckPlan.decide(snap) == UpdateCheckPlan.Action.DoNothing) {
+                return Result.success()
+            }
 
             val count = coordinator.refreshInstalledApps()
             val summary = coordinator.checkForPatchUpdates(patchAfterwards = false)
@@ -45,7 +48,8 @@ class UpdateCheckWorker(
             )
         }.getOrElse { t ->
             android.util.Log.w(TAG, "Update check failed", t)
-            Result.retry()
+            // Bounded: a check that keeps failing must not retry forever.
+            if (UpdateCheckPlan.shouldRetry(runAttemptCount)) Result.retry() else Result.failure()
         }
     }
 

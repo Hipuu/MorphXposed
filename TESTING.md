@@ -85,7 +85,8 @@ BUILD SUCCESSFUL
 | `AutoPatchPolicyTest` | 11 | 0 | JVM (pure functions) |
 | `InstallResultReceiverTest` | 8 | 0 | Robolectric + ShadowPackageInstaller |
 | `SessionInstallerTest` | 5 | 0 | Robolectric + ShadowPackageInstaller |
-| **Total** | **173** | **0** (0 skipped) | |
+| `UpdateCheckPlanTest` | 4 | 0 | JVM (pure functions) |
+| **Total** | **177** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
