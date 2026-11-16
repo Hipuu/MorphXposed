@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import dev.morphxposed.ui.viewmodel.RunPresentation
 import dev.morphxposed.ui.viewmodel.RunProgress
 
 /**
@@ -47,13 +48,9 @@ fun RunSheet(progress: RunProgress, onDismiss: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                when {
-                    progress.active -> "Patching..."
-                    progress.failed != null -> "Run failed"
-                    progress.installed -> "Patched and installed"
-                    progress.pendingInstall -> "Patched - confirm install"
-                    else -> "Patched - saved to device storage"
-                },
+                // Single source of truth: the title logic is tested in RunPresentation, which
+                // also guarantees a finished run is not still labelled "Patching...".
+                RunPresentation.sheetTitle(progress),
                 style = MaterialTheme.typography.titleMedium
             )
 

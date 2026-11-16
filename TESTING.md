@@ -81,7 +81,8 @@ BUILD SUCCESSFUL
 | `SplitArchivesTest` | 5 | 0 | JVM |
 | `BackupRollbackTest` | 8 | 0 | Robolectric + Room |
 | `BundleDownloadVerificationTest` | 12 | 0 | Robolectric + MockWebServer |
-| **Total** | **130** | **0** (0 skipped) | |
+| `RunPresentationTest` | 19 | 0 | JVM (pure functions) |
+| **Total** | **149** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -143,6 +144,35 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### The text the user actually reads is tested
+
+`RunPresentationTest` covers the two functions that decide everything shown to the user: the
+batch summary in the snackbar, and the folding of patcher events into the progress sheet.
+They were private methods on a ViewModel bound to an `Application`, so the app's most-read
+text was its least verified. They are now pure functions in `RunPresentation`.
+
+Testing them found an ordering bug in the progress sheet title:
+
+```kotlin
+// before: a finished run still said "Patching..."
+when {
+    progress.active -> "Patching..."      // checked first
+    progress.failed != null -> "Run failed"
+    ...
+}
+```
+
+`RunProgress.active` is only cleared by the caller, so between the run emitting `Done` and the
+state being reset the sheet displayed "Patching..." for a run that had already finished. The
+outcome flags now take precedence. The same bug existed independently in `RunSheet.kt`, which
+duplicated the `when` block; that copy is gone and the UI calls the tested function, so the
+two can no longer drift.
+
+Also pinned: a failure always wins over a success in the summary (reporting "Patched 2 apps"
+while a third failed would misrepresent the batch), an exported-but-not-installed run is never
+labelled as installed, the log stays bounded at `MAX_LOG_LINES` so a long run cannot exhaust
+memory, and every `TriggerReason` has a label.
 
 ### The download path enforces its checksums against a real server
 
@@ -303,7 +333,7 @@ executed. They assert:
 
 ### Bugs these tests found
 
-Six real defects were caught by adding these harnesses, all of which would have shipped:
+Seven real defects were caught by adding these harnesses, all of which would have shipped:
 
 1. **`startKoin` was not idempotent.** Recreating the `Application` threw
    `KoinApplicationAlreadyStartedException`, crashing startup. Fixed by guarding on
@@ -336,6 +366,11 @@ app being changed to satisfy a brittle test.
    stream, so nothing was flushed and the file stayed 0 bytes. Every install would have failed
    at signing with `Unrecognized keystore format`, with the cause swallowed into `Log.e`.
    Fixed by using the stream and asserting it is non-empty.
+
+7. **The progress sheet said "Patching..." after the run had finished.** `sheetTitle` checked
+   `active` before the outcome flags, and `active` is only cleared by the caller, so a finished
+   run kept its in-progress label. The same `when` block was duplicated in `RunSheet.kt` and had
+   the bug independently; both are now one tested function.
 
 ### A real bug found earlier by the bundle diagnostics
 

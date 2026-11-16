@@ -1,4 +1,4 @@
-package dev.morphxposed.ui.viewmodel
+﻿package dev.morphxposed.ui.viewmodel
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -37,23 +37,6 @@ data class AppUiModel(
     val needsRepatch: Boolean
         get() = app.lastPatchedVersion != null && app.lastPatchedVersion != app.versionName
 }
-
-/** Live state of a patch run, for the progress sheet. */
-data class RunProgress(
-    val active: Boolean = false,
-    val packageName: String? = null,
-    val stage: String = "",
-    val patchProgress: Pair<Int, Int>? = null,
-    val taskProgress: Pair<String, Pair<Long, Long>>? = null,
-    val logLines: List<String> = emptyList(),
-    /** A patched APK was produced. */
-    val finished: Boolean = false,
-    /** The patched APK reached the device. */
-    val installed: Boolean = false,
-    /** The platform is waiting for the user to confirm the install. */
-    val pendingInstall: Boolean = false,
-    val failed: String? = null
-)
 
 /**
  * Single ViewModel for the whole app.
@@ -333,51 +316,12 @@ class MainViewModel(private val app: MorphXposedApp) : ViewModel() {
         reloadApps()
     }
 
-    private fun summarise(summary: BatchSummary): String = when {
-        summary.total == 0 -> "Nothing to patch."
-        summary.failed.isEmpty() && summary.patched.isNotEmpty() ->
-            "Patched ${summary.patched.size} app(s)."
-        summary.failed.isNotEmpty() ->
-            "${summary.failed.size} failed: ${summary.failed.first().second}"
-        else -> summary.skipped.firstOrNull()?.second ?: "Nothing to patch."
-    }
+    /** Delegates to [RunPresentation] so the wording and the rules live in one tested place. */
+    private fun summarise(summary: BatchSummary): String = RunPresentation.summarise(summary)
 
-    /**
-     * Folds a [PatchEvent] into the observable run state.
-     *
-     * `finished` means the run produced a patched APK; it is not the same as "installed".
-     */
-    private fun RunProgress.reduce(event: PatchEvent): RunProgress = when (event) {
-        is PatchEvent.Stage -> copy(stage = event.stage.name + if (event.detail.isNotEmpty()) ": ${event.detail}" else "")
-        is PatchEvent.TaskProgress -> copy(
-            taskProgress = event.task to (event.done to event.total)
-        )
-        is PatchEvent.PatchSucceeded -> copy(
-            patchProgress = (patchProgress?.first ?: 0).plus(1) to (patchProgress?.second ?: 0),
-            logLines = (logLines + "OK ${event.name}").takeLast(400)
-        )
-        is PatchEvent.PatchFailed -> copy(
-            logLines = (logLines + "FAILED ${event.name}: ${event.message}").takeLast(400)
-        )
-        is PatchEvent.Log -> copy(logLines = (logLines + event.line).takeLast(400))
-        is PatchEvent.Error -> copy(
-            failed = event.message,
-            logLines = (logLines + "ERROR: ${event.message}").takeLast(400)
-        )
-        is PatchEvent.Done -> copy(
-            finished = true,
-            installed = event.installed,
-            pendingInstall = event.pendingInstall,
-            logLines = (
-                logLines + when {
-                    event.installed -> "Done: patched and installed."
-                    event.pendingInstall -> "Done: patched; waiting for install confirmation."
-                    else -> "Done: patched. APK exported, not installed."
-                }
-                ).takeLast(400)
-        )
-        is PatchEvent.PatchExecuting -> copy(logLines = (logLines + "> ${event.name}").takeLast(400))
-    }
+    /** Delegates to [RunPresentation] so the folding rules live in one tested place. */
+    private fun RunProgress.reduce(event: PatchEvent): RunProgress =
+        RunPresentation.reduce(this, event)
 }
 
 data class SettingsUiState(
