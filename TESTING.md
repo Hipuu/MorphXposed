@@ -76,7 +76,8 @@ BUILD SUCCESSFUL
 | `LsposedBridgeContractTest` | 5 | 0 | Robolectric + Room |
 | `RootModuleScriptsTest` | 9 | 0 | JVM (shell generation) |
 | `DependencyGraphTest` | 6 | 0 | Robolectric + Koin |
-| **Total** | **93** | **0** | |
+| `PatchSignerTest` | 9 | 0 | Robolectric + real apksig |
+| **Total** | **102** | **0** | |
 
 ### Compose UI is actually composed
 
@@ -138,6 +139,34 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### APK signing is executed and its output verified
+
+`PatchSignerTest` signs a real APK with the app's own signer and verifies the result with
+`apksig` — the same library the patcher signs with. Signing is on the critical path of every
+install and had never been run.
+
+It asserts the keystore is generated, the signature verifies, v2 signing is present (the
+minimum for API 24+), the signing identity is **stable across runs** (the property that makes
+an update installable), two different keystores do not share an identity, and failures return
+`false` rather than throwing.
+
+Running it found a defect that would have broken **every install**:
+
+> `ensureKeyStore()` called `MorpheApkSigner.writeKeyStore(keystoreFile.outputStream().buffered(), ...)`
+> and never closed the stream. A buffered stream that is only abandoned is never flushed, so
+> the keystore file stayed **0 bytes**. Every later read then failed with
+> `Unrecognized keystore format`, and since `sign()` swallows the cause into `Log.e`, the run
+> would have failed with no explanation.
+
+The test asserts the **round trip** — that Morphe's own `readKeyStore` can read back what its
+own `writeKeyStore` produced — which is what catches this class of defect. A test that only
+checked "the file is non-empty" would have passed on a flushed-but-unreadable file.
+
+Diagnosing it also established a fixture requirement worth recording: `ApkUtils.signApk`
+reads `minSdkVersion` from the **binary** manifest, so a placeholder manifest fails with
+`MinSdkVersionException: malformed binary resource`. The test therefore signs
+`testdata/target.apk`, the real compiled APK, rather than a synthetic zip.
 
 ### The dependency graph resolves, and the root-mount shell is inspected
 
@@ -217,7 +246,7 @@ executed. They assert:
 
 ### Bugs these tests found
 
-Five real defects were caught by adding these harnesses, all of which would have shipped:
+Six real defects were caught by adding these harnesses, all of which would have shipped:
 
 1. **`startKoin` was not idempotent.** Recreating the `Application` threw
    `KoinApplicationAlreadyStartedException`, crashing startup. Fixed by guarding on
@@ -245,6 +274,11 @@ Additionally, the bridge verification added in the previous round was itself too
 `PackageChangeReceiver`-to-`permission` match allowed only 400 characters between the two
 attributes, so a legitimate manifest failed the check. The window was widened rather than the
 app being changed to satisfy a brittle test.
+
+6. **The signing keystore was written empty.** `ensureKeyStore()` never closed its buffered
+   stream, so nothing was flushed and the file stayed 0 bytes. Every install would have failed
+   at signing with `Unrecognized keystore format`, with the cause swallowed into `Log.e`.
+   Fixed by using the stream and asserting it is non-empty.
 
 ### A real bug found earlier by the bundle diagnostics
 

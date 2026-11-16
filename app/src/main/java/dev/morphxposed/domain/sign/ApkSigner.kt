@@ -53,12 +53,19 @@ class PatchSigner(private val keystoreFile: File, private val alias: String) {
         val validUntil = Date(System.currentTimeMillis() + THIRTY_YEARS_MS)
         val keyPair = MorpheApkSigner.newPrivateKeyCertificatePair(COMMON_NAME, validUntil)
 
-        MorpheApkSigner.writeKeyStore(
-            keystoreFile.outputStream().buffered(),
-            KEY_STORE_PASSWORD,
-            mapOf(alias to keyPair)
-        )
-        Log.i(TAG, "Generated signing keystore at ${keystoreFile.name}")
+        // The stream must be closed: a buffered stream that is only abandoned leaves the file
+        // empty, and an empty keystore makes every later read fail with
+        // "Unrecognized keystore format".
+        keystoreFile.outputStream().buffered().use { out ->
+            MorpheApkSigner.writeKeyStore(
+                out,
+                KEY_STORE_PASSWORD,
+                mapOf(alias to keyPair)
+            )
+        }
+
+        check(keystoreFile.length() > 0) { "Keystore was written empty" }
+        Log.i(TAG, "Generated signing keystore at ${keystoreFile.name} (${keystoreFile.length()} bytes)")
     }
 
     fun hasKey(): Boolean = keystoreFile.isFile && keystoreFile.length() > 0
