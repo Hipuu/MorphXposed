@@ -77,7 +77,10 @@ BUILD SUCCESSFUL
 | `RootModuleScriptsTest` | 9 | 0 | JVM (shell generation) |
 | `DependencyGraphTest` | 6 | 0 | Robolectric + Koin |
 | `PatchSignerTest` | 9 | 0 | Robolectric + real apksig |
-| **Total** | **102** | **0** | |
+| `PatchThenSignPipelineTest` | 3 | 0 | JVM + real engine |
+| `SplitArchivesTest` | 5 | 0 | JVM |
+| `BackupRollbackTest` | 8 | 0 | Robolectric + Room |
+| **Total** | **118** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -139,6 +142,32 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### The install pipeline is verified as a whole, plus rollback
+
+Individual steps being correct does not mean the sequence is. `PatchThenSignPipelineTest`
+runs **patch -> sign -> verify** in the order a real run does, which is the composition an
+install actually depends on: a patched APK that cannot be signed, or a signed APK that does
+not verify, is indistinguishable from a working one until install time. It also asserts the
+re-signed product carries **our** identity rather than the fixture's, since re-signing must
+replace the original signature rather than inherit it.
+
+A note on test placement, because it produced a false green: `loadPatchesFromJar` loads the
+bundle through a `DexClassLoader`, which **Robolectric's sandboxed classloader does not
+support**. Under Robolectric the bundle loads as *zero patches* and the test skips itself
+rather than failing. That is a silent-pass hazard, so the pipeline test is a plain JVM test;
+`PatchSigner` needs no `Context`, so nothing is lost. `SplitArchivesTest` is JVM-only for the
+same reason (it is pure `java.util.zip`).
+
+`BackupRollbackTest` covers the recovery path. Rollback is a stated requirement, and the
+orchestrator wraps its backup write in `runCatching`, so a silent failure there would leave
+the user with no way back and no warning. It pins one backup per version, newest-first
+ordering for rollback, per-package scoping, exact-version lookup for repatching, storage
+accounting, and that a deleted backup does not affect its siblings.
+
+`SplitArchivesTest` covers both directions a Play-distributed app needs: merging splits into
+one patchable APK (base wins on duplicate names, a ZIP with duplicate entries is invalid) and
+packing a split install into one archive so a rollback restores exactly what was installed.
 
 ### APK signing is executed and its output verified
 
