@@ -30,9 +30,18 @@ import java.util.concurrent.TimeUnit
 class PatchSourceClient(
     private val context: Context,
     private val settings: SettingsStore,
-    private val json: Json = Json { ignoreUnknownKeys = true; isLenient = true }
+    private val json: Json = Json { ignoreUnknownKeys = true; isLenient = true },
+    /**
+     * Base URL of the GitHub-compatible API. Overridable so the resolve/download/verify path
+     * can be exercised against a local server instead of the live GitHub API.
+     */
+    private val apiBaseUrl: String = DEFAULT_API_BASE,
+    /** Directory the bundle cache lives in; overridable for tests. */
+    private val bundlesDirOverride: File? = null,
+    /** HTTP client; overridable so tests can point at a local server. */
+    clientOverride: OkHttpClient? = null
 ) {
-    private val client = OkHttpClient.Builder()
+    private val client = clientOverride ?: OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
         .callTimeout(10, TimeUnit.MINUTES)
@@ -42,7 +51,7 @@ class PatchSourceClient(
 
     /** Directory holding cached bundles; one file per source. */
     private val bundlesDir: File
-        get() = File(context.filesDir, "bundles").apply { mkdirs() }
+        get() = (bundlesDirOverride ?: File(context.filesDir, "bundles")).apply { mkdirs() }
 
     /** The bundle cache directory, for callers that need to locate a cached file. */
     fun bundleDirectory(): File = bundlesDir
@@ -83,7 +92,7 @@ class PatchSourceClient(
     private suspend fun fetchReleases(owner: String, repo: String): List<GhRelease> {
         val token = settings.githubToken.first()
         val request = Request.Builder()
-            .url("https://api.github.com/repos/$owner/$repo/releases?per_page=20")
+            .url("$apiBaseUrl/repos/$owner/$repo/releases?per_page=20")
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
             .header("User-Agent", USER_AGENT)
@@ -248,6 +257,9 @@ class PatchSourceClient(
     companion object {
         private const val TAG = "MorphXPatchSource"
         private const val USER_AGENT = "MorphXposed/1.0 (+https://github.com/Hipuu/MorphXposed)"
+
+        /** GitHub's API; overridable for tests. */
+        const val DEFAULT_API_BASE = "https://api.github.com"
         private const val PROGRESS_STEP = 256 * 1024L
     }
 }

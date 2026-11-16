@@ -152,6 +152,8 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     // Verifies the signatures the app produces, using the same library the patcher signs with.
     testImplementation(libs.apksig)
+    // Local server for the bundle download and checksum-verification path.
+    testImplementation(libs.okhttp.mockwebserver)
     // WorkManager scheduling, and Compose composition, both need their own test harnesses.
     testImplementation(libs.androidx.work.testing)
     testImplementation(platform(libs.androidx.compose.bom))

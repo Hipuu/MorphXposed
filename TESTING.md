@@ -80,7 +80,8 @@ BUILD SUCCESSFUL
 | `PatchThenSignPipelineTest` | 3 | 0 | JVM + real engine |
 | `SplitArchivesTest` | 5 | 0 | JVM |
 | `BackupRollbackTest` | 8 | 0 | Robolectric + Room |
-| **Total** | **118** | **0** (0 skipped) | |
+| `BundleDownloadVerificationTest` | 12 | 0 | Robolectric + MockWebServer |
+| **Total** | **130** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -142,6 +143,33 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### The download path enforces its checksums against a real server
+
+`BundleDownloadVerificationTest` runs the release-resolve and download-verify path against a
+local `MockWebServer`. This is the security-critical half of patch management and had never
+been executed; the checksum check in particular is a requirement, not a nicety.
+
+Reaching it required a small production change: the GitHub API base URL was hardcoded, so the
+client is now constructible with an API base, a cache directory, and an HTTP client. That is a
+better design regardless, and it made the path testable.
+
+What is now proven, not assumed:
+
+* a release whose checksum matches is cached, and the cached bytes hash to the published
+  digest;
+* a **checksum mismatch is rejected** and leaves **no files at all** — not the staged
+  part-file, not a cache entry;
+* a non-ZIP payload, and a ZIP with none of a bundle's marker entries, are both rejected and
+  nothing is cached;
+* a **failed refresh does not clobber a previously working bundle**, which is what stops a
+  transient corruption from breaking an install that was fine;
+* a pre-release is skipped unless explicitly allowed;
+* HTTP 403 with `X-RateLimit-Reset` maps to a rate-limit error, 404 to not-found, and a
+  release carrying no `.mpp` asset produces a message naming the tag;
+* a malformed `digest` is **dropped rather than trusted**, so a nonsense value cannot silently
+  become the expected checksum;
+* download progress reports the real byte counts.
 
 ### The install pipeline is verified as a whole, plus rollback
 
