@@ -315,20 +315,29 @@ object RootShell {
         }.getOrDefault(false)
     }
 
-    /** Copies [source] to [destinationPath] through a root shell. */
+    /**
+     * Copies [source] to [destinationPath] as root by streaming it into `su -c "cat > path"`.
+     *
+     * Streams rather than reading the file into memory: a patched APK is routinely over 100 MB,
+     * and buffering it whole (twice, as an earlier version did) is enough to OOM a low-end phone.
+     */
     fun pushFile(source: File, destinationPath: String): Boolean {
-        // Read locally, write through root. Avoids needing a root-capable `cp` binary path.
+        if (!source.isFile) return false
         return runCatching {
-            val bytes = source.readBytes()
-            val tmp = File.createTempFile("mount", ".apk")
-            tmp.writeBytes(bytes)
-            tmp.deleteOnExit()
-            // `cat` through su keeps the write under root while the data comes from app storage.
-            val process = ProcessBuilder(
-                "su", "-c", "cat > $destinationPath"
-            ).redirectErrorStream(true).start()
-            process.outputStream.use { it.write(bytes) }
-            process.waitFor() == 0
+            val process = ProcessBuilder("su", "-c", "cat > $destinationPath")
+                .redirectErrorStream(true)
+                .start()
+            // Drain stderr/stdout so the child cannot block on a full pipe.
+            val drain = Thread {
+                runCatching { process.inputStream.use { it.copyTo(java.io.OutputStream.nullOutputStream()) } }
+            }.apply { isDaemon = true; start() }
+
+            process.outputStream.use { out ->
+                source.inputStream().use { input -> input.copyTo(out, DEFAULT_BUFFER_SIZE) }
+            }
+            val code = process.waitFor()
+            drain.join(2_000)
+            code == 0
         }.getOrDefault(false)
     }
 

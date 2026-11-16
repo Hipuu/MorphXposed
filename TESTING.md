@@ -71,7 +71,9 @@ BUILD SUCCESSFUL
 | `SettingsAndScannerTest` | 7 | 0 | Robolectric |
 | `ScreenCompositionTest` | 14 | 0 | Robolectric + Compose |
 | `WorkSchedulingTest` | 8 | 0 | Robolectric + WorkManager |
-| **Total** | **58** | **0** | |
+| `OrchestratorLogicTest` | 8 | 0 | Robolectric + Room |
+| `SourceAndReceiverTest` | 7 | 0 | Robolectric + Room |
+| **Total** | **73** | **0** | |
 
 ### Compose UI is actually composed
 
@@ -109,6 +111,31 @@ enqueued work:
 * re-enqueueing the same package replaces instead of stacking;
 * toggling the setting on then off round-trips through real scheduling.
 
+### The orchestrator's decision logic is executed
+
+`OrchestratorLogicTest` drives the real `PatchOrchestrator` against real Room and DataStore,
+with the device boundaries (scanner, installers) as they actually behave. It covers the
+early-exit paths, which are the easiest to get wrong and the hardest to notice:
+
+* a package that is not installed is refused, and **no run row is written** for it;
+* with no cached bundle the run fails cleanly with an explanation naming the cause;
+* a **disabled** source is not considered;
+* the installer-defaults assertion confirms session installs are the unprivileged default;
+* root mount reports unavailable without root and returns `NotPermitted` rather than throwing;
+* root mount never requires uninstalling the stock app, while the session installer does;
+* **every run terminates** in `Done` or `Error` and never ends silently, because the UI
+  waits on exactly those two events.
+
+`SourceAndReceiverTest` covers the package-event path and source bookkeeping:
+
+* the receiver ignores malformed intents, its own package, and packages no source supports;
+* a removal broadcast actually drops the row from the Application's database, so a stale
+  entry cannot later trigger a run;
+* every form of a repository spec a user might paste (`owner/repo`, with `https://github.com/`,
+  with a trailing slash, with `.git`) normalizes to the same source;
+* a failed refresh records the error **without erasing the working cached bundle**;
+* only enabled sources are read.
+
 ### Earlier Robolectric coverage
 
 `DatabaseAndScannerTest` and `SettingsAndScannerTest` run the real Android
@@ -131,7 +158,7 @@ executed. They assert:
 
 ### Bugs these tests found
 
-Three real defects were caught by adding these harnesses, all of which would have shipped:
+Four real defects were caught by adding these harnesses, all of which would have shipped:
 
 1. **`startKoin` was not idempotent.** Recreating the `Application` threw
    `KoinApplicationAlreadyStartedException`, crashing startup. Fixed by guarding on
@@ -145,6 +172,11 @@ Three real defects were caught by adding these harnesses, all of which would hav
 3. **`PatchEvent.Done` implied installation succeeded** even when the installer was
    unavailable or failed, so an exported-only APK was reported as installed. `Done` now
    carries `installed`/`pendingInstall`, and such runs are recorded as `PATCHED`.
+
+4. **`RootShell.pushFile` buffered the whole APK twice.** It called `readBytes()` and also
+   wrote a redundant temporary copy, so copying a 100 MB patched APK transiently needed over
+   200 MB — enough to OOM a low-end phone mid-install. It now streams the file into the root
+   shell and drains the child's output so it cannot block on a full pipe.
 
 ### A real bug found earlier by the bundle diagnostics
 
