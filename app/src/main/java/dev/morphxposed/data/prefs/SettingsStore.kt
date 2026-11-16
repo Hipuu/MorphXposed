@@ -133,6 +133,15 @@ class SettingsStore(private val context: Context) {
 
     suspend fun markAutoCheckNow() = put(Keys.lastAutoCheckAt, System.currentTimeMillis())
 
+    /**
+     * Clears every stored setting, returning the app to its shipped defaults.
+     *
+     * Used by tests, and by the in-app reset action.
+     */
+    suspend fun resetToDefaults() {
+        context.dataStore.edit { it.clear() }
+    }
+
     suspend fun snapshot(): Snapshot = Snapshot(
         installStrategy = installStrategy.first(),
         autoPatchOnInstall = autoPatchOnInstall.first(),

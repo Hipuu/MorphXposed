@@ -102,11 +102,13 @@ class PatchOrchestrator(
 
             // ---- 2. Resolve the bundle --------------------------------------------------------
             val snap = settings.snapshot()
-            val (bundleFile, bundleInfo) = resolveBundle(packageName, app.versionName)
+            val resolved = resolveBundle(packageName, app.versionName)
                 ?: throw PatchRunException(
                     "No enabled patch source can patch ${app.label} ${app.versionName}."
                 )
-            appendLog("Using bundle ${bundleInfo.tag} (${bundleInfo.patches.size} patches)")
+            val bundleFile = resolved.file
+            val bundleInfo = resolved.info
+            appendLog("Using bundle ${resolved.tag} (${bundleInfo.patches.size} patches)")
 
             // ---- 3. Verify compatibility ------------------------------------------------------
             val report = CompatibilityResolver.resolve(
@@ -125,9 +127,10 @@ class PatchOrchestrator(
             if (selected.isEmpty()) throw PatchRunException("No patches apply to ${app.versionName}.")
 
             // ---- 4. Skip if nothing changed ---------------------------------------------------
+            // "Already done" must compare against the bundle actually used for this app, not
+            // whichever source happens to be listed first.
             val alreadyPatched = app.lastPatchedVersion == app.versionName &&
-                app.lastPatchedBundleSha256 == currentBundleSha() &&
-                !forceInstall
+                app.lastPatchedBundleSha256 == resolved.sha256
             if (alreadyPatched && !forceInstall) {
                 appendLog("Already patched with this bundle and version; nothing to do.")
                 emit(PatchEvent.Log("Nothing to do: already patched."))
@@ -144,8 +147,8 @@ class PatchOrchestrator(
                     status = "PATCHING",
                     sourceVersionName = app.versionName,
                     sourceVersionCode = app.versionCode,
-                    bundleTag = bundleInfo.tag,
-                    bundleSha256 = currentBundleSha(),
+                    bundleTag = resolved.tag,
+                    bundleSha256 = resolved.sha256,
                     installStrategy = snap.installStrategy.name
                 )
             )
@@ -212,23 +215,27 @@ class PatchOrchestrator(
 
             val installed = installResult is InstallResult.Success
             val pending = installResult is InstallResult.PendingUserAction
+            // A mount-based install preserves the stock app, so record it separately.
+            val mounted = (installResult as? InstallResult.Success)?.strategy ==
+                InstallStrategyName.ROOT_MOUNT
 
             db.supportedAppDao().markPatched(
                 packageName = packageName,
                 at = System.currentTimeMillis(),
                 version = app.versionName,
-                bundleTag = bundleInfo.tag,
-                bundleSha = currentBundleSha(),
-                mounted = installResult?.let {
-                    (it as? InstallResult.Success)?.strategy == InstallStrategyName.ROOT_MOUNT
-                } ?: false
+                bundleTag = resolved.tag,
+                bundleSha = resolved.sha256,
+                mounted = mounted
             )
             db.supportedAppDao().setSelectedPatches(packageName, applied.joinToString(","))
 
+            // "SUCCEEDED" must mean the patch was applied. Whether it reached the device is
+            // reported separately by `installed`, so an exported-but-not-installed run is not
+            // presented as a completed install.
             val status = when {
                 installed -> "SUCCEEDED"
                 pending -> "INSTALLING"
-                else -> "SUCCEEDED" // patched and exported, just not installed
+                else -> "PATCHED"
             }
             db.patchRunDao().complete(
                 id = runId,
@@ -250,7 +257,9 @@ class PatchOrchestrator(
             emit(
                 PatchEvent.Done(
                     outputApk = signedOutput,
-                    applied = applied
+                    applied = applied,
+                    installed = installed,
+                    pendingInstall = pending
                 )
             )
         } catch (t: Throwable) {
@@ -285,13 +294,22 @@ class PatchOrchestrator(
         InstallStrategy.SHIZUKU, InstallStrategy.SESSION -> sessionInstaller
     }
 
+    /** A bundle resolved for a package, with the source it came from. */
+    private data class ResolvedBundle(
+        val sourceId: Long,
+        val file: File,
+        val info: BundleInfo,
+        val sha256: String?,
+        val tag: String
+    )
+
     /**
      * Finds the bundle that can patch [packageName] and its metadata.
      *
      * The first enabled source that reports SUPPORTED for the installed version wins, so an
      * app patched by a community source is never overridden by the official one.
      */
-    private suspend fun resolveBundle(packageName: String, installedVersion: String): Pair<File, BundleInfo>? {
+    private suspend fun resolveBundle(packageName: String, installedVersion: String): ResolvedBundle? {
         val sources = db.patchSourceDao().enabled()
         for (source in sources) {
             val fileName = source.cachedFileName ?: continue
@@ -307,13 +325,18 @@ class PatchOrchestrator(
             val report = CompatibilityResolver.resolve(
                 info, packageName, installedVersion, android.os.Build.VERSION.SDK_INT
             )
-            if (report.status == Compatibility.SUPPORTED) return file to info
+            if (report.status == Compatibility.SUPPORTED) {
+                return ResolvedBundle(
+                    sourceId = source.id,
+                    file = file,
+                    info = info,
+                    sha256 = source.cachedSha256,
+                    tag = source.installedTag ?: info.tag
+                )
+            }
         }
         return null
     }
-
-    private suspend fun currentBundleSha(): String? =
-        db.patchSourceDao().enabled().firstOrNull()?.cachedSha256
 
     /**
      * Copies the installed base APK (plus splits, packed as an APKS archive) into backup storage.

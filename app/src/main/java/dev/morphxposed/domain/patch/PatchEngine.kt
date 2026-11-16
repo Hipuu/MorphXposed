@@ -24,7 +24,20 @@ sealed interface PatchEvent {
     data class PatchSucceeded(val name: String) : PatchEvent
     data class PatchFailed(val name: String, val message: String) : PatchEvent
     data class Log(val line: String) : PatchEvent
-    data class Done(val outputApk: File, val applied: List<String>) : PatchEvent
+
+    /**
+     * A run finished and produced a patched APK.
+     *
+     * @param installed true only when the APK actually reached the device.
+     * @param pendingInstall true when the platform is waiting on the user to confirm.
+     */
+    data class Done(
+        val outputApk: File,
+        val applied: List<String>,
+        val installed: Boolean = false,
+        val pendingInstall: Boolean = false
+    ) : PatchEvent
+
     data class Error(val message: String, val cause: Throwable? = null) : PatchEvent
 }
 

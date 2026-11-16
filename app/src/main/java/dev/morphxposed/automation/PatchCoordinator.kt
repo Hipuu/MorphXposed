@@ -145,7 +145,9 @@ class PatchCoordinator(
                 is PatchEvent.Log -> if (event.line.startsWith("Nothing to do")) {
                     skippedReason = event.line
                 }
-                is PatchEvent.Done -> installed = true
+                // Whether the APK reached the device is what `installed` reports; a run that
+                // only exported an APK must not be announced as an install.
+                is PatchEvent.Done -> installed = event.installed
                 else -> Unit
             }
         }

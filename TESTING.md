@@ -60,52 +60,57 @@ $ ./gradlew :app:testDebugUnitTest
 BUILD SUCCESSFUL
 ```
 
-| Suite | Tests | Failures |
-|---|---:|---:|
-| `CompatibilityResolverTest` | 11 | 0 |
-| `VersionComparatorTest` | 4 | 0 |
-| `BundleShapeDiagnosticsTest` | 1 | 0 |
-| `RealBundleIntegrationTest` | 5 | 0 |
-| `EndToEndPatchTest` | 2 | 0 |
-| **Total** | **23** | **0** |
+| Suite | Tests | Failures | Runtime |
+|---|---:|---:|---|
+| `CompatibilityResolverTest` | 11 | 0 | JVM |
+| `VersionComparatorTest` | 4 | 0 | JVM |
+| `BundleShapeDiagnosticsTest` | 1 | 0 | JVM |
+| `RealBundleIntegrationTest` | 5 | 0 | JVM + real bundle |
+| `EndToEndPatchTest` | 2 | 0 | JVM + real engine |
+| `DatabaseAndScannerTest` | 6 | 0 | **Robolectric (real Android)** |
+| `SettingsAndScannerTest` | 7 | 0 | **Robolectric (real Android)** |
+| **Total** | **36** | **0** | |
 
-### Real-bundle integration (against `patches-2.3.0.mpp`)
+The Robolectric suites run the real Android framework on the JVM, so Room schema creation,
+DAO queries, `DataStore` read/write, and `PackageManager` interaction are genuinely
+executed rather than merely compiled. They assert:
 
-`RealBundleIntegrationTest` loads the official bundle through the official
-`loadPatchesFromJar` and asserts:
+* the shipped defaults are safe — automatic patching is **off** for both install and update,
+  and the installer defaults to the unprivileged session strategy;
+* written settings persist and are read back;
+* the check interval is clamped (0h -> 1h, 10000h -> 168h);
+* the GitHub token is stored trimmed;
+* `reconcile` preserves user-owned state (auto-patch opt-in, selected patches, last-patch
+  record, mount flag) across a rescan while refreshing the detected version;
+* `reconcile` removes apps that are no longer installed;
+* the official source cannot be deleted while a third-party one can;
+* `markDownloaded` clears a previous error and stores bundle metadata;
+* the skip-if-unchanged rule compares the bundle *actually used*, and a null checksum never
+  matches a real one.
 
-* the bundle declares **212 patches** (>50 threshold asserted);
-* it declares compatibility for `com.google.android.youtube`,
-  `com.google.android.apps.youtube.music`, and `com.reddit.frontpage`;
-* a declared YouTube version resolves as `SUPPORTED` with applicable patches;
-* an invented version (`0.0.1-not-a-real-version`) does **not** resolve as `SUPPORTED`;
-* the manifest declares a `Patcher-Version`, and universal patches are detected.
+### Bugs these tests found
 
-`BundleShapeDiagnosticsTest` prints the real shape of the bundle's YouTube declarations:
+Two real defects were caught by adding Robolectric, both of which would have shipped:
 
-```
-=== YouTube compatibility declarations ===
-total entries     : 118
-empty targets     : 0
-with targets      : 118
-```
+1. **`startKoin` was not idempotent.** Recreating the `Application` threw
+   `KoinApplicationAlreadyStartedException`, crashing startup on a second creation. Fixed by
+   guarding on `GlobalContext.getOrNull()`.
 
-### A real bug this testing found
+2. **A test-isolation leak exposed a design gap.** `DataStore` is a per-file singleton, so
+   settings survived between tests. Fixing the test required adding
+   `SettingsStore.resetToDefaults()`, which is now also available to the app.
 
-An early version of `CompatibilityResolver` reported *any* version as `SUPPORTED`
-whenever the bundle contained **universal** patches (signature/installer spoofing), since
-those apply to every app. Combined with automation, that would have patched arbitrary
-unsupported versions of YouTube.
+### A real bug found earlier by the bundle diagnostics
 
-The diagnostic printed `resolver says for bogus version: SUPPORTED`, which exposed it.
+An early version of `CompatibilityResolver` reported *any* version as `SUPPORTED` whenever
+the bundle contained **universal** patches (signature/installer spoofing), since those apply
+to every app. Combined with automation, that would have patched arbitrary unsupported
+versions of YouTube.
 
-Fixed by adding `Compatibility.UNIVERSAL_ONLY`: universal patches are offered, but they do
-not make a version *supported*, and the orchestrator's gate (`status == SUPPORTED`) still
-refuses to auto-patch. Three regression tests cover it:
-
-* `universal patch alone does not make an unsupported version patchable`
-* `universal patch on a package no patch targets is universal only`
-* `universal patch applies alongside a supported version`
+`BundleShapeDiagnosticsTest` printed `resolver says for bogus version: SUPPORTED`, which
+exposed it. Fixed by adding `Compatibility.UNIVERSAL_ONLY`: universal patches are offered,
+but they do not make a version *supported*, and the orchestrator's gate
+(`status == SUPPORTED`) still refuses to auto-patch. Three regression tests cover it.
 
 ---
 
@@ -232,13 +237,15 @@ with an unsigned or structurally broken APK.
 `HypervisorPlatform` is disabled, so the Android Emulator cannot run with acceleration
 here.
 
-The following were therefore verified by build, link, and artefact inspection rather than
-by running:
+Robolectric closes part of that gap by running real Android framework code on the JVM
+(section 3), which executes Room, DataStore, `PackageManager`, Application startup, and the
+installer's parameter construction. What it still cannot prove, and what remains
+**unverified**:
 
-* Compose UI rendering and navigation,
-* `WorkManager` scheduling actually firing,
-* the session installer's `PendingIntent` round-trip,
-* root-mount module mounting at boot,
+* Compose UI rendering and navigation (no composition is exercised),
+* `WorkManager` scheduling actually being dispatched by the system scheduler,
+* the session installer's `PendingIntent` round-trip through a real `PackageInstaller`,
+* root-mount module mounting at boot by a real root manager,
 * the LSPosed module hooking `PackageManagerService` on a live framework.
 
 Those paths are implemented against the documented platform APIs, and the manifest and dex
@@ -246,6 +253,6 @@ were verified to agree (section 6), but "compiled, packaged and statically verif
 weaker claim than "ran on a device", and is reported as such rather than overstated.
 
 **Patching a real YouTube/Reddit APK.** Those APKs are copyrighted and were not downloaded.
-The engine was proven on a synthetic APK instead (section 4), which exercises the same code
+The engine was instead proven on a synthetic APK (section 4), which exercises the same code
 path without redistributing anyone's app.
 

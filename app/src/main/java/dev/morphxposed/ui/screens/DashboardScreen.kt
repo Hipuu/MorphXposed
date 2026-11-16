@@ -201,6 +201,8 @@ private fun DashboardAppRow(model: AppUiModel, onClick: () -> Unit) {
 
 internal fun runStatusColor(status: String): androidx.compose.ui.graphics.Color = when (status) {
     "SUCCEEDED" -> androidx.compose.ui.graphics.Color(0xFF2E7D32)
+    // Patched and exported, but not installed on the device: a distinct, non-success state.
+    "PATCHED" -> androidx.compose.ui.graphics.Color(0xFF1565C0)
     "FAILED" -> androidx.compose.ui.graphics.Color(0xFFC62828)
     "INSTALLING", "PATCHING", "SIGNING", "QUEUED" -> androidx.compose.ui.graphics.Color(0xFF1565C0)
     else -> androidx.compose.ui.graphics.Color(0xFF757575)

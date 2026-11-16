@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
+import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import org.koin.java.KoinJavaComponent.getKoin
 
@@ -30,10 +31,14 @@ class MorphXposedApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        startKoin {
-            androidLogger()
-            androidContext(this@MorphXposedApp)
-            modules(appModule)
+        // Starting Koin twice throws. The Application can be recreated (and is, per test, under
+        // instrumentation), so the start is guarded rather than assumed to be the first.
+        if (GlobalContext.getOrNull() == null) {
+            startKoin {
+                androidLogger()
+                androidContext(this@MorphXposedApp)
+                modules(appModule)
+            }
         }
 
         appScope.launch {

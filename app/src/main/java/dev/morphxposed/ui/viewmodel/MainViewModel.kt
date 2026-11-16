@@ -46,7 +46,12 @@ data class RunProgress(
     val patchProgress: Pair<Int, Int>? = null,
     val taskProgress: Pair<String, Pair<Long, Long>>? = null,
     val logLines: List<String> = emptyList(),
+    /** A patched APK was produced. */
     val finished: Boolean = false,
+    /** The patched APK reached the device. */
+    val installed: Boolean = false,
+    /** The platform is waiting for the user to confirm the install. */
+    val pendingInstall: Boolean = false,
     val failed: String? = null
 )
 
@@ -337,7 +342,11 @@ class MainViewModel(private val app: MorphXposedApp) : ViewModel() {
         else -> summary.skipped.firstOrNull()?.second ?: "Nothing to patch."
     }
 
-    /** Folds a [PatchEvent] into the observable run state. */
+    /**
+     * Folds a [PatchEvent] into the observable run state.
+     *
+     * `finished` means the run produced a patched APK; it is not the same as "installed".
+     */
     private fun RunProgress.reduce(event: PatchEvent): RunProgress = when (event) {
         is PatchEvent.Stage -> copy(stage = event.stage.name + if (event.detail.isNotEmpty()) ": ${event.detail}" else "")
         is PatchEvent.TaskProgress -> copy(
@@ -345,15 +354,29 @@ class MainViewModel(private val app: MorphXposedApp) : ViewModel() {
         )
         is PatchEvent.PatchSucceeded -> copy(
             patchProgress = (patchProgress?.first ?: 0).plus(1) to (patchProgress?.second ?: 0),
-            logLines = (logLines + "✓ ${event.name}").takeLast(400)
+            logLines = (logLines + "OK ${event.name}").takeLast(400)
         )
         is PatchEvent.PatchFailed -> copy(
-            logLines = (logLines + "✗ ${event.name}: ${event.message}").takeLast(400)
+            logLines = (logLines + "FAILED ${event.name}: ${event.message}").takeLast(400)
         )
         is PatchEvent.Log -> copy(logLines = (logLines + event.line).takeLast(400))
-        is PatchEvent.Error -> copy(failed = event.message, logLines = (logLines + "ERROR: ${event.message}").takeLast(400))
-        is PatchEvent.Done -> copy(finished = true, logLines = (logLines + "Done").takeLast(400))
-        is PatchEvent.PatchExecuting -> copy(logLines = (logLines + "→ ${event.name}").takeLast(400))
+        is PatchEvent.Error -> copy(
+            failed = event.message,
+            logLines = (logLines + "ERROR: ${event.message}").takeLast(400)
+        )
+        is PatchEvent.Done -> copy(
+            finished = true,
+            installed = event.installed,
+            pendingInstall = event.pendingInstall,
+            logLines = (
+                logLines + when {
+                    event.installed -> "Done: patched and installed."
+                    event.pendingInstall -> "Done: patched; waiting for install confirmation."
+                    else -> "Done: patched. APK exported, not installed."
+                }
+                ).takeLast(400)
+        )
+        is PatchEvent.PatchExecuting -> copy(logLines = (logLines + "> ${event.name}").takeLast(400))
     }
 }
 

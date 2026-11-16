@@ -92,6 +92,16 @@ android {
         abortOnError = false
         checkReleaseBuilds = false
     }
+
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged manifest and resources to start real Android
+            // components on the JVM.
+            isIncludeAndroidResources = true
+            // android.util.Log and similar stubs return defaults instead of throwing.
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 kotlin {
@@ -138,6 +148,8 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }

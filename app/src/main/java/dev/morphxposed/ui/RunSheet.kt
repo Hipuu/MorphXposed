@@ -47,7 +47,13 @@ fun RunSheet(progress: RunProgress, onDismiss: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                if (progress.active) "Patching…" else "Run finished",
+                when {
+                    progress.active -> "Patching..."
+                    progress.failed != null -> "Run failed"
+                    progress.installed -> "Patched and installed"
+                    progress.pendingInstall -> "Patched - confirm install"
+                    else -> "Patched - saved to device storage"
+                },
                 style = MaterialTheme.typography.titleMedium
             )
 
