@@ -83,7 +83,9 @@ BUILD SUCCESSFUL
 | `BundleDownloadVerificationTest` | 12 | 0 | Robolectric + MockWebServer |
 | `RunPresentationTest` | 19 | 0 | JVM (pure functions) |
 | `AutoPatchPolicyTest` | 11 | 0 | JVM (pure functions) |
-| **Total** | **160** | **0** (0 skipped) | |
+| `InstallResultReceiverTest` | 8 | 0 | Robolectric + ShadowPackageInstaller |
+| `SessionInstallerTest` | 5 | 0 | Robolectric + ShadowPackageInstaller |
+| **Total** | **173** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -145,6 +147,32 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### The install result path is executed, not deferred
+
+`PackageInstaller.commit` only reports that the platform *accepted* a request; the real outcome
+arrives later as a broadcast. That callback is the only thing that tells the app whether a
+patched APK actually reached the device, and it had never been run.
+
+Robolectric shadows `PackageInstaller`, so it turns out the flow can be driven without a
+device. `InstallResultReceiverTest` covers it:
+
+* a **failure** marks the run `FAILED` and keeps the platform's message for the Logs screen;
+* a **pending user action** is recorded as `INSTALLING`, not `FAILED` — the user may take any
+  amount of time on the confirmation dialog, and calling that a failure would be wrong;
+* a **success** never rewrites a run to failed;
+* an aborted install, an unknown package, a result with no package name, and a broadcast with
+  the wrong action are each handled without touching state or crashing.
+
+`SessionInstallerTest` covers the unrooted install path up to the commit: the installer
+declares that it needs the stock app removed (the signature differs, and that trade-off is
+shown to the user, so the flag must be honest), its availability tracks the platform
+permission rather than guessing, and an install either returns a definite outcome or refuses
+with `NotPermitted` — it never silently does nothing.
+
+One production change came out of this: `InstallResultReceiver` built a **second**
+`MorphDatabase` just to update one row. It now reuses the application's instance, which the
+app already holds and which owns the run being updated.
 
 ### The gate in front of automatic patching is tested
 

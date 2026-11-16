@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import dev.morphxposed.MorphXposedApp
 import dev.morphxposed.data.db.MorphDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +38,11 @@ class InstallResultReceiver : BroadcastReceiver() {
             val pending = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 runCatching {
-                    val db = MorphDatabase.build(context)
+                    // Reuse the application's database when it is available. Building a second
+                    // instance over the same file would open another connection for a single
+                    // row update, and the app's instance already holds the run this refers to.
+                    val db = (context.applicationContext as? MorphXposedApp)?.database
+                        ?: MorphDatabase.build(context)
                     val latest = db.patchRunDao().latestFor(packageName)
                     if (latest != null) {
                         db.patchRunDao().complete(
