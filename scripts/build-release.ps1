@@ -37,6 +37,23 @@ try {
 
     Write-Host "`nArtifacts in $out"
     Get-ChildItem $out -Filter *.apk | ForEach-Object { "  {0}  {1:N1} MB" -f $_.Name, ($_.Length / 1MB) }
+
+    # Verify each artifact before it is considered done: signed, and every manifest component
+    # present in the dex. This catches the class of failure that only shows up as a crash on
+    # launch, without needing a device.
+    Write-Host "`nVerifying artifacts…"
+    $buildTools = if ($env:ANDROID_HOME) { Join-Path $env:ANDROID_HOME 'build-tools/37.0.0' } else { $null }
+    if ($buildTools -and (Test-Path $buildTools)) {
+        foreach ($apk in Get-ChildItem $out -Filter *.apk) {
+            $verify = & (Join-Path $buildTools 'apksigner.bat') verify $apk.FullName 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "$($apk.Name) is not correctly signed" }
+            Write-Host "  signed: $($apk.Name)"
+
+            & (Join-Path $PSScriptRoot 'verify-apk.ps1') -Apk $apk.FullName -BuildTools $buildTools
+        }
+    } else {
+        Write-Warning "Build tools not found; skipping signature and component verification."
+    }
 } finally {
     Pop-Location
 }

@@ -188,22 +188,64 @@ compile time. The module APK also ships `assets/xposed_init` declaring
 
 ---
 
-## 6. What was *not* tested, and why
+## 6. Artefact verification (no device required)
 
-**On-device execution.** No Android device or emulator with LSPosed was available in this
-environment, so these were verified by build/link/artefact inspection rather than by
-running:
+Every release artefact is checked before it is considered done, because these catch the
+failures that otherwise only appear as a crash on launch.
 
-* the Compose UI rendering and navigation,
+```
+$ apksigner verify dist/MorphXposed.apk ; echo $?
+0                      # exit 0 == verified
+
+$ apksigner verify --verbose dist/MorphXposed.apk
+Verifies
+Verified using v2 scheme (APK Signature Scheme v2): true
+```
+
+```
+$ ./scripts/verify-apk.ps1 -Apk dist/MorphXposed.apk
+Package: dev.morphxposed
+Declared classes: 4, dex classes: 51728
+OK: every manifest component resolves to a class in the dex
+
+$ ./scripts/verify-apk.ps1 -Apk dist/MorphXposed-Events.apk
+Package: dev.morphxposed.events
+Declared classes: 1, dex classes: 1127
+OK: every manifest component resolves to a class in the dex
+```
+
+The components checked are `MorphXposedApp`, `MainActivity`,
+`PackageChangeReceiver`, `InstallResultReceiver` (main app) and `ModuleInfoActivity`
+(events module). A renamed or moved class with a stale manifest entry would fail here
+rather than at runtime.
+
+Both checks are wired into `scripts/build-release.ps1`, so a release build cannot succeed
+with an unsigned or structurally broken APK.
+
+---
+
+## 7. What was *not* tested, and why
+
+**On-device execution.** No Android device, and no emulator was possible: the host reports
+`VirtualizationFirmwareEnabled: False` and
+`SecondLevelAddressTranslationExtensions: False` (no hardware virtualisation), and
+`HypervisorPlatform` is disabled, so the Android Emulator cannot run with acceleration
+here.
+
+The following were therefore verified by build, link, and artefact inspection rather than
+by running:
+
+* Compose UI rendering and navigation,
 * `WorkManager` scheduling actually firing,
 * the session installer's `PendingIntent` round-trip,
 * root-mount module mounting at boot,
-* the LSPosed module hooking `PackageManagerService` on a real framework.
+* the LSPosed module hooking `PackageManagerService` on a live framework.
 
-Those paths are implemented against the documented platform APIs and the manifest is
-complete, but "compiled and packaged" is a weaker claim than "ran on a device", and is
-reported as such rather than overstated.
+Those paths are implemented against the documented platform APIs, and the manifest and dex
+were verified to agree (section 6), but "compiled, packaged and statically verified" is a
+weaker claim than "ran on a device", and is reported as such rather than overstated.
 
-**Patching a real YouTube/Reddit APK.** Those APKs are copyrighted and were not
-downloaded. The engine was instead proven on a synthetic APK (section 4), which exercises
-the same code path without redistributing anyone's app.
+**Patching a real YouTube/Reddit APK.** Those APKs are copyrighted and were not downloaded.
+The engine was proven on a synthetic APK instead (section 4), which exercises the same code
+path without redistributing anyone's app.
+
