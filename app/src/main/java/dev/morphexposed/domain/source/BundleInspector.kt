@@ -2,7 +2,6 @@ package dev.morphexposed.domain.source
 
 import android.util.Log
 import app.morphe.patcher.patch.Patch
-import app.morphe.patcher.patch.loadPatchesFromJar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -66,7 +65,7 @@ class BundleInspector {
         val bundleVersion = manifest?.mainAttributes?.getValue("Bundle-Version")
 
         val patches = try {
-            loadPatchesFromJar(setOf(bundleFile)).map { it.toInfo() }
+            BundlePatchLoader.load(setOf(bundleFile)).patches.map { it.toInfo() }
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to load patches from ${bundleFile.name}", t)
             throw BundleInspectionException(
