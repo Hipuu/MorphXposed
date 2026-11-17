@@ -134,6 +134,43 @@ try {
         Write-Host "OK: bridge permission is signature-guarded and the receiver filters its action" -ForegroundColor Green
     }
 
+    # The package was renamed from dev.morphxposed to dev.morphexposed. A stale reference would
+    # point at an app that no longer exists - a permission that never matches, a provider authority
+    # that resolves to nothing - and every one of those fails silently at runtime. This checks the
+    # built artifact rather than the source, because resource and dex merging can carry strings the
+    # compiler never showed us.
+    # Scanned from the raw bytes of the dex and resources, not from `aapt2 dump strings`: that
+    # command reads the resource table only, so a stale package name inside compiled code would
+    # pass unnoticed - which is exactly the failure this check exists to catch.
+    $oldPackage = [System.Text.Encoding]::ASCII.GetBytes('dev.morphxposed')
+    $offending = @()
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($Apk)
+    try {
+        foreach ($entry in $zip.Entries) {
+            if ($entry.Length -le 0 -or $entry.Length -gt 80MB) { continue }
+            if ($entry.FullName -notmatch '\.(dex|xml|arsc|txt|json|properties)$' -and
+                $entry.FullName -ne 'resources.arsc') { continue }
+            $stream = $entry.Open()
+            $buffer = New-Object System.IO.MemoryStream
+            $stream.CopyTo($buffer)
+            $stream.Dispose()
+            $bytes = $buffer.ToArray()
+            $buffer.Dispose()
+            # Substring search over a decoded copy. A per-byte PowerShell loop over a 20 MB dex
+            # takes minutes; this is the same check in one call.
+            $text = [System.Text.Encoding]::GetEncoding(28591).GetString($bytes)
+            if ($text.Contains('dev.morphxposed')) { $offending += $entry.FullName }
+            $text = $null
+            $bytes = $null
+        }
+    } finally { $zip.Dispose() }
+
+    if ($offending.Count -gt 0) {
+        throw "The APK still contains 'dev.morphxposed' in: $($offending -join ', ')"
+    }
+    Write-Host "OK: no references to the pre-rename package remain" -ForegroundColor Green
+
     # The events module must be openable from LSPosed Manager. LSPosed shows a "module settings"
     # entry only for a module declaring one of these actions; without them the user browses
     # LSPosed with no guidance from the module itself, which is exactly where they need to learn
