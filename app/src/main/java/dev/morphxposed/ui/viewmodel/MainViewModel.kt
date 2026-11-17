@@ -113,6 +113,12 @@ class MainViewModel(private val app: MorphXposedApp) : ViewModel() {
         }
     }
 
+    /** Mirrors settings.lsposedBridgeEnabled so the toggle can render its state. */
+    val bridgeEnabled: StateFlow<Boolean> = settings.lsposedBridgeEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    fun setBridgeEnabled(value: Boolean) = launchSetting { settings.setLsposedBridgeEnabled(value) }
+
     private val _busy = MutableStateFlow<String?>(null)
     val busy: StateFlow<String?> = _busy.asStateFlow()
 

@@ -128,8 +128,9 @@ BUILD SUCCESSFUL
 | `PermissionStatusTest` | 7 | 0 | Robolectric |
 | `NotificationsTest` | 8 | 0 | Robolectric + ShadowNotificationManager |
 | `RunRetentionTest` | 6 | 0 | Robolectric + Room |
+| `BridgeToggleTest` | 8 | 0 | Robolectric + Room |
 | Root-mount shell execution | 14 checks | 0 | **real bash via WSL** |
-| **Total** | **243** | **0** (0 skipped) | |
+| **Total** | **251** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -191,6 +192,32 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### A setting that did nothing
+
+Since eight findings had all been the same shape — declared but unreachable — this round scanned
+the whole codebase for it rather than waiting to trip over the next one: every `fun` declaration,
+counted against every call site, method reference and trailing-lambda invocation. Sixteen suspects;
+most were artifacts of the scan, but one was real and user-facing.
+
+**`lsposedBridgeEnabled` was stored in DataStore, surfaced in the settings snapshot, and read by
+nothing.** Switching it off changed no behaviour whatsoever. The receiver now gates bridge events
+on it — and deliberately does *not* gate platform broadcasts, because the platform path is what
+must keep working when the module is absent.
+
+It also had **no UI**: the setting could not be changed even in principle. The LSPosed card in
+Settings now carries a toggle.
+
+One subtlety worth recording: the "bridge has been seen" indicator is recorded **before** the
+switch is consulted. The settings screen has to be able to say the module is reaching the app even
+while the user has chosen to ignore those events; gating the diagnostic on the same switch would
+hide the very evidence the row exists to show.
+
+`BridgeToggleTest` pins all of it, including that the platform broadcast path survives the switch
+being off.
+
+`onboardingDone` was removed outright: no onboarding flow exists, and the key was never read or
+written. A single-toggle dead key is not worth keeping for a screen that does not exist.
 
 ### Verifying the traceability doc found two unbounded-growth bugs
 

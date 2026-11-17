@@ -77,6 +77,7 @@ private fun MorphXposedApp(app: MorphXposedApp, vm: MainViewModel) {
     val lsposedStatus = lsposed.describe()
     val lsposedActive = lsposed.bridgeObserved
     val permissions by vm.permissions.collectAsStateWithLifecycle()
+    val bridgeEnabled by vm.bridgeEnabled.collectAsStateWithLifecycle()
 
     val snackbar = remember { SnackbarHostState() }
     var tab by remember { mutableStateOf(Tab.DASHBOARD) }
@@ -166,7 +167,9 @@ private fun MorphXposedApp(app: MorphXposedApp, vm: MainViewModel) {
                         lsposedStatus = lsposedStatus,
                         lsposedActive = lsposedActive,
                         onRefreshLsposed = vm::refreshLsposed,
-                        permissions = permissions
+                        permissions = permissions,
+                        bridgeEnabled = bridgeEnabled,
+                        onSetBridgeEnabled = vm::setBridgeEnabled
                     )
                 }
             }

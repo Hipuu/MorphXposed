@@ -10,68 +10,24 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
- * Reacts to app install, update and removal.
+ * Turns package install/update/removal events into patch runs.
  *
- * Two sources feed this receiver, and they are deliberately handled differently:
+ * There are two sources, and they are not interchangeable:
  *
- *  * **Platform broadcasts** (`PACKAGE_ADDED` / `PACKAGE_REPLACED` / `PACKAGE_REMOVED`) carry a
- *    `package:` data URI. Android 8.0+ does not deliver these to manifest receivers of ordinary
- *    apps, so in practice this path only fires for the app's own packages or on older releases.
- *  * **The LSPosed bridge** ([ACTION_LSPOSED_EVENT]) carries the package name in an extra and no
- *    data URI. It comes from the optional events module, which observes `PackageManagerService`
- *    inside `system_server` and is the only reliable real-time source on modern Android.
+ *  * **Platform broadcasts** (`PACKAGE_ADDED`/`REPLACED`/`REMOVED`). Android 8+ does not deliver
+ *    these to a manifest-declared receiver of an ordinary app, so on a modern device this source
+ *    is usually silent. It is still implemented because it costs nothing and works where it does.
+ *  * **The LSPosed events module**, which forwards the same events from `system_server`. This is
+ *    the source that actually fires on current Android. It is optional: the scheduled check is
+ *    the guaranteed path, so the user can switch it off without losing automation.
  *
- * The bridge is protected by a signature-level permission, so only an APK signed with this app's
- * own key (in practice, the events module) can drive it. Anything else is rejected by the
- * platform before `onReceive` runs.
+ * The receiver only decides *what* happened. Whether to patch is `AutoPatchPolicy`'s job, in the
+ * coordinator, so the user's switches are evaluated in one tested place.
  */
 class PackageChangeReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        val action = intent.action ?: return
-
-        // Route by source. The bridge is identified by its action, not by a data URI, because the
-        // intent is not a package broadcast and carries no scheme.
-        val event: PackageEvent = when (action) {
-            ACTION_LSPOSED_EVENT -> {
-                // Record that the bridge works: this is the only trustworthy evidence that the
-                // module is active, since LSPosed cannot be asked.
-                val bridged = fromBridge(intent) ?: return
-                BridgeObservations.record(bridged.kind.name)
-                bridged
-            }
-            Intent.ACTION_PACKAGE_ADDED -> {
-                val pkg = packageFromData(intent) ?: return
-                PackageEvent(
-                    packageName = pkg,
-                    kind = if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) {
-                        Kind.UPDATED
-                    } else {
-                        Kind.INSTALLED
-                    },
-                    replacing = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
-                )
-            }
-
-            Intent.ACTION_PACKAGE_REPLACED -> {
-                val pkg = packageFromData(intent) ?: return
-                PackageEvent(pkg, Kind.UPDATED, replacing = true)
-            }
-
-            Intent.ACTION_PACKAGE_REMOVED -> {
-                val pkg = packageFromData(intent) ?: return
-                PackageEvent(
-                    packageName = pkg,
-                    kind = Kind.REMOVED,
-                    replacing = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
-                )
-            }
-
-            else -> return
-        }
-
-        // Never act on ourselves.
-        if (event.packageName == context.packageName) return
+        val event = eventOf(context, intent) ?: return
 
         val app = context.applicationContext as? MorphXposedApp ?: return
         Log.i(TAG, "Package event ${event.kind} for ${event.packageName}")
@@ -79,6 +35,14 @@ class PackageChangeReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                // Honour the user switch for events that came from the module. Without this the
+                // setting was stored, displayed and never acted on, which made it a setting that
+                // did nothing. Platform broadcasts are deliberately unaffected: they still work
+                // when the bridge is off, which is why the bridge is optional.
+                if (event.fromBridge && !app.settings.snapshot().lsposedBridgeEnabled) {
+                    Log.i(TAG, "Bridge event ignored: the events bridge is switched off")
+                    return@launch
+                }
                 when (event.kind) {
                     Kind.REMOVED -> {
                         if (!event.replacing) {
@@ -98,6 +62,57 @@ class PackageChangeReceiver : BroadcastReceiver() {
                 pending.finish()
             }
         }
+    }
+
+    /**
+     * Parses an intent into an event, recording bridge reception as a side effect.
+     *
+     * Extracted from [onReceive] so the routing can be tested without a live database and
+     * without waiting on a coroutine. The bridge is identified by its action rather than a data
+     * URI, because its intent is not a package broadcast and carries no scheme.
+     */
+    internal fun eventOf(context: Context, intent: Intent): PackageEvent? {
+        val action = intent.action ?: return null
+
+        val event = when (action) {
+            ACTION_LSPOSED_EVENT -> {
+                val bridged = fromBridge(intent) ?: return null
+                // Recorded even when the bridge is switched off: it is the only trustworthy
+                // evidence the module is active, and the settings screen must be able to say so.
+                BridgeObservations.record(bridged.kind.name)
+                bridged.copy(fromBridge = true)
+            }
+
+            Intent.ACTION_PACKAGE_ADDED -> {
+                val pkg = packageFromData(intent) ?: return null
+                val replacing = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
+                PackageEvent(
+                    packageName = pkg,
+                    kind = if (replacing) Kind.UPDATED else Kind.INSTALLED,
+                    replacing = replacing
+                )
+            }
+
+            Intent.ACTION_PACKAGE_REPLACED -> {
+                val pkg = packageFromData(intent) ?: return null
+                PackageEvent(pkg, Kind.UPDATED, replacing = true)
+            }
+
+            Intent.ACTION_PACKAGE_REMOVED -> {
+                val pkg = packageFromData(intent) ?: return null
+                PackageEvent(
+                    packageName = pkg,
+                    kind = Kind.REMOVED,
+                    replacing = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
+                )
+            }
+
+            else -> return null
+        }
+
+        // Never act on ourselves.
+        if (event.packageName == context.packageName) return null
+        return event
     }
 
     private fun packageFromData(intent: Intent): String? =
@@ -148,7 +163,9 @@ class PackageChangeReceiver : BroadcastReceiver() {
     data class PackageEvent(
         val packageName: String,
         val kind: Kind,
-        val replacing: Boolean
+        val replacing: Boolean,
+        /** True when this arrived from the LSPosed module rather than the platform. */
+        val fromBridge: Boolean = false
     )
 
     companion object {

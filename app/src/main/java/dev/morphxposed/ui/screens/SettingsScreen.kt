@@ -50,7 +50,9 @@ fun SettingsScreen(
     lsposedStatus: String,
     lsposedActive: Boolean,
     onRefreshLsposed: () -> Unit,
-    permissions: List<dev.morphxposed.automation.PermissionStatus.Item>
+    permissions: List<dev.morphxposed.automation.PermissionStatus.Item>,
+    bridgeEnabled: Boolean,
+    onSetBridgeEnabled: (Boolean) -> Unit
 ) {
     var showAddSource by remember { mutableStateOf(false) }
     var showToken by remember { mutableStateOf(false) }
@@ -279,6 +281,14 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (lsposedActive) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    // Without this the stored setting was unreachable: it existed in DataStore
+                    // and was read by nothing, so the app always behaved as if it were on.
+                    ToggleRow(
+                        title = "Act on events from the module",
+                        subtitle = "Turn off to ignore LSPosed events. Scheduled checks still run.",
+                        checked = bridgeEnabled,
+                        onChange = onSetBridgeEnabled
                     )
                     Text(
                         "LSPosed exposes no way for a module to read its own activation state, so " +

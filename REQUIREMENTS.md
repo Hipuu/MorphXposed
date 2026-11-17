@@ -65,6 +65,7 @@ Totals are in [TESTING.md](TESTING.md).
 | Implement a module if runtime hooks are appropriate | `xposed/` — hooks `PackageManagerService` in `system_server` | `LsposedBridgeContractTest`, built and verified as a second APK |
 | Provide activation and scope guidance | `ModuleInfoActivity`, now reachable **from LSPosed Manager** via `OPEN_MODULE_SETTINGS` and `MODULE_SETTINGS` intent filters; also in [INSTALL.md](INSTALL.md) | `verify` checks the intent filters exist in the built APK |
 | Detect whether LSPosed is installed | `LsposedStatus` — package lookup for `org.lsposed.manager` and forks | `LsposedStatusTest` (9) |
+| The events bridge can be switched off | `lsposedBridgeEnabled` gates bridge events only; platform broadcasts unaffected. Toggle in Settings | `BridgeToggleTest` (8) |
 | Detect whether the module is enabled | **Not possible.** LSPosed exposes no API for a module to read its own activation state. The app reports whether an event has actually arrived, which is the only trustworthy signal, and says "cannot be read" otherwise | `LsposedStatusTest` — "no state may imply the module is running without an observed event" |
 | Never assume LSPosed can modify APKs or install | The module only broadcasts; it has no patching code and cannot install | module manifest has no install permission; `LsposedBridgeContractTest` |
 

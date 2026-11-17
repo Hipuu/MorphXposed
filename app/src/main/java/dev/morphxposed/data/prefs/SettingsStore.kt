@@ -49,7 +49,6 @@ class SettingsStore(private val context: Context) {
         val verboseLogging = booleanPreferencesKey("verbose_logging")
         val lsposedBridgeEnabled = booleanPreferencesKey("lsposed_bridge_enabled")
         val lastAutoCheckAt = longPreferencesKey("last_auto_check_at")
-        val onboardingDone = booleanPreferencesKey("onboarding_done")
         val githubToken = stringPreferencesKey("github_token")
     }
 
@@ -72,7 +71,6 @@ class SettingsStore(private val context: Context) {
     val wifiOnlyDownloads: Flow<Boolean> = bool(Keys.wifiOnlyDownloads, false)
     val verboseLogging: Flow<Boolean> = bool(Keys.verboseLogging, false)
     val lsposedBridgeEnabled: Flow<Boolean> = bool(Keys.lsposedBridgeEnabled, true)
-    val onboardingDone: Flow<Boolean> = bool(Keys.onboardingDone, false)
 
     /** Hours between automatic patch-source checks. Clamped to a sane range. */
     val updateCheckIntervalHours: Flow<Int> = context.dataStore.data.map { prefs ->
@@ -125,7 +123,6 @@ class SettingsStore(private val context: Context) {
     suspend fun setWifiOnlyDownloads(value: Boolean) = put(Keys.wifiOnlyDownloads, value)
     suspend fun setVerboseLogging(value: Boolean) = put(Keys.verboseLogging, value)
     suspend fun setLsposedBridgeEnabled(value: Boolean) = put(Keys.lsposedBridgeEnabled, value)
-    suspend fun setOnboardingDone(value: Boolean) = put(Keys.onboardingDone, value)
     suspend fun setGithubToken(value: String) = put(Keys.githubToken, value.trim())
 
     suspend fun setUpdateCheckIntervalHours(hours: Int) =

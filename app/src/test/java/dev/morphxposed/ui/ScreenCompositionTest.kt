@@ -383,7 +383,9 @@ class ScreenCompositionTest {
                     lsposedStatus = lsposedText,
                     lsposedActive = lsposedOn,
                     onRefreshLsposed = {},
-                    permissions = permissions
+                    permissions = permissions,
+                    bridgeEnabled = true,
+                    onSetBridgeEnabled = {}
                 )
             }
         }
@@ -425,7 +427,9 @@ class ScreenCompositionTest {
                     lsposedStatus = lsposedText,
                     lsposedActive = lsposedOn,
                     onRefreshLsposed = {},
-                    permissions = permissions
+                    permissions = permissions,
+                    bridgeEnabled = true,
+                    onSetBridgeEnabled = {}
                 )
             }
         }
