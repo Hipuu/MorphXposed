@@ -108,6 +108,18 @@ class PatchOrchestrator(
                 )
             val bundleFile = resolved.file
             val bundleInfo = resolved.info
+
+            // Refuse a bundle built for a newer patcher before doing any work. Morphe's engine
+            // would reject it deep inside a run, which surfaces as an opaque failure a long way
+            // from the cause; the requirement is already known here.
+            val verdict = dev.morphxposed.domain.source.PatcherCompatibility
+                .check(bundleInfo.patcherVersion)
+            if (!verdict.canRun) {
+                throw PatchRunException(
+                    "This patch bundle needs a newer Morphe patcher. ${verdict.describe()}. " +
+                        "Update MorphXposed to patch ${app.label}."
+                )
+            }
             appendLog("Using bundle ${resolved.tag} (${bundleInfo.patches.size} patches)")
 
             // ---- 3. Verify compatibility ------------------------------------------------------

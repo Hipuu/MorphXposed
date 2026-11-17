@@ -118,9 +118,18 @@ private fun SourceCard(
                     StatusChip("Official", MaterialTheme.colorScheme.secondary)
                 }
                 if (source.requiredPatcherVersion != null) {
+                    // Showing the required version but never comparing it meant a bundle built
+                    // for a newer engine looked fine until a run failed deep inside the patcher.
+                    val verdict = dev.morphxposed.domain.source.PatcherCompatibility
+                        .check(source.requiredPatcherVersion)
                     StatusChip(
-                        "Patcher ${source.requiredPatcherVersion}",
-                        MaterialTheme.colorScheme.tertiary
+                        if (verdict.canRun) {
+                            "Patcher ${source.requiredPatcherVersion}"
+                        } else {
+                            "Needs newer patcher"
+                        },
+                        if (verdict.canRun) MaterialTheme.colorScheme.tertiary
+                        else MaterialTheme.colorScheme.error
                     )
                 }
             }

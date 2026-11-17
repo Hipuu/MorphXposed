@@ -102,6 +102,7 @@ Totals are in [TESTING.md](TESTING.md).
 |---|---|---|
 | Verify downloaded artifacts | SHA-256 against the GitHub release digest before use | `BundleDownloadVerificationTest` |
 | Prefer official repositories and signed releases | official source seeded and **cannot be removed** | `SourceAndReceiverTest` |
+| Refuse a bundle built for a newer patcher | `PatcherCompatibility` — compared against the version baked into the build, refused before any work is done | `PatcherCompatibilityTest` (11) |
 | Never execute untrusted downloaded scripts | `.mpp` files are loaded as DEX through `loadPatchesFromJar`; no `sh`, no `Runtime.exec` on downloaded content | no such call exists in `app/src/main` |
 | Request root only when necessary | `RootMountInstaller` is opt-in; session install is the default | `OrchestratorLogicTest` |
 | Do not modify unrelated applications | target must resolve `Compatibility.SUPPORTED` before any write | `CompatibilityResolverTest`, `OrchestratorLogicTest` |

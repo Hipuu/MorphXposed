@@ -60,6 +60,17 @@ android {
         buildConfig = true
     }
 
+    // The patcher version this APK actually ships, exposed so the app can tell whether a patch
+    // bundle requires a newer engine before it wastes a download and a failed run. Taken from the
+    // same version catalog the dependency uses, so the two cannot drift apart.
+    defaultConfig {
+        buildConfigField(
+            "String",
+            "MORPHE_PATCHER_VERSION",
+            "\"${libs.versions.morphePatcher.get()}\""
+        )
+    }
+
     packaging {
         resources {
             excludes += setOf(

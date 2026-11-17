@@ -131,9 +131,10 @@ BUILD SUCCESSFUL
 | `BridgeToggleTest` | 8 | 0 | Robolectric + Room |
 | `RestorePresentationTest` | 12 | 0 | JVM (pure functions) |
 | `FailedPatchRecordingTest` | 4 | 0 | Robolectric + Room |
-| `ApkSharingTest` | 13 | 0 | Robolectric + Robolectric shadows |
+| `ApkSharingTest` | 13 | 0 | Robolectric |
+| `PatcherCompatibilityTest` | 11 | 0 | JVM (pure functions) |
 | Root-mount shell execution | 14 checks | 0 | **real bash via WSL** |
-| **Total** | **280** | **0** (0 skipped) | |
+| **Total** | **291** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -195,6 +196,26 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### A compatibility requirement that was displayed but never checked
+
+The Patches screen showed each bundle's required patcher version — `Patcher 2.4.0` — and never
+compared it to the patcher the app actually ships. A bundle built for a newer engine looked
+perfectly fine until a run failed somewhere inside Morphe's patcher, with a message a long way from
+the cause. Morphe itself rejects the bundle; the requirement is known at download time, so there is
+no reason to find out the hard way.
+
+`PatcherCompatibility` now compares the two, and the run refuses early with a message naming both
+versions. The bundled version comes from a `BuildConfig` field generated from the same version
+catalog entry the dependency uses, so the two cannot drift apart.
+
+Writing the tests caught a flaw in my own first attempt. I assumed `VersionComparator` would throw
+on an unparseable version; it does not — it falls back to **alphabetical** ordering, under which
+`"not-a-version"` outranks `"2.4.0"`. The check would therefore have blocked any bundle whose
+version string was not dotted-numeric, silently removing a feature that probably worked. Only
+values that actually look like versions are compared now; anything else is reported as unknown.
+That is the safe direction: refusing a working bundle costs the user a feature with no explanation,
+while allowing a broken one produces a visible failure.
 
 ### Two more: failures that were never recorded, and an export nobody could reach
 
