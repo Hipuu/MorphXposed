@@ -89,12 +89,60 @@ class MainViewModel(private val app: MorphXposedApp) : ViewModel() {
     /** Rollback support, reachable from the app detail dialog. */
     private val rollbackService by lazy { getKoin().get<dev.morphxposed.domain.backup.RollbackService>() }
 
+    /**
+     * A restore the user has asked for but not yet confirmed.
+     *
+     * Restoring a session-installed app re-installs the original APK, which changes the
+     * signature back and makes Android clear the app's data. That is unavoidable, so the user
+     * must be told before it happens rather than afterwards.
+     */
+    data class RestorePrompt(
+        val packageName: String,
+        val appLabel: String,
+        val losesAppData: Boolean,
+        val reason: String
+    )
+
+    private val _restorePrompt = MutableStateFlow<RestorePrompt?>(null)
+    val restorePrompt: StateFlow<RestorePrompt?> = _restorePrompt.asStateFlow()
+
     /** Describes what a rollback for [packageName] would do, or null when none is possible. */
     suspend fun rollbackAvailability(packageName: String): dev.morphxposed.domain.backup.RollbackService.Availability? =
         runCatching {
             val row = db.supportedAppDao().byPackage(packageName) ?: return@runCatching null
             rollbackService.availability(packageName, row.mounted)
         }.getOrNull()
+
+    /**
+     * Asks the user to confirm a restore, showing whether their data is at risk.
+     *
+     * A restore that would clear the app's data must never be one tap away with no warning: the
+     * information existed in `RollbackService.Availability` and was shown nowhere.
+     */
+    fun requestRestore(packageName: String) {
+        viewModelScope.launch {
+            val availability = rollbackAvailability(packageName)
+            if (availability == null || !availability.canRollback) {
+                _message.value = availability?.reason
+                    ?: "This app has no saved original, so it cannot be restored."
+                return@launch
+            }
+            val row = db.supportedAppDao().byPackage(packageName)
+            _restorePrompt.value = RestorePresentation.prompt(packageName, row?.label, availability)
+        }
+    }
+
+    /** Abandons a pending restore. */
+    fun dismissRestore() {
+        _restorePrompt.value = null
+    }
+
+    /** Carries out the restore the user confirmed. */
+    fun confirmRestore() {
+        val prompt = _restorePrompt.value ?: return
+        _restorePrompt.value = null
+        rollback(prompt.packageName)
+    }
 
     /** Restores [packageName] from its saved original APK. */
     fun rollback(packageName: String) {

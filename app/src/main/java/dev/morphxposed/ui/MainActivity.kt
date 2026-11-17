@@ -20,6 +20,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +42,7 @@ import dev.morphxposed.ui.screens.PatchesScreen
 import dev.morphxposed.ui.screens.SettingsScreen
 import dev.morphxposed.ui.theme.MorphXposedTheme
 import dev.morphxposed.ui.viewmodel.MainViewModel
+import dev.morphxposed.ui.viewmodel.RestorePresentation
 
 private enum class Tab(val label: String, val icon: ImageVector) {
     DASHBOARD("Home", Icons.Rounded.Dashboard),
@@ -78,6 +81,7 @@ private fun MorphXposedApp(app: MorphXposedApp, vm: MainViewModel) {
     val lsposedActive = lsposed.bridgeObserved
     val permissions by vm.permissions.collectAsStateWithLifecycle()
     val bridgeEnabled by vm.bridgeEnabled.collectAsStateWithLifecycle()
+    val restorePrompt by vm.restorePrompt.collectAsStateWithLifecycle()
 
     val snackbar = remember { SnackbarHostState() }
     var tab by remember { mutableStateOf(Tab.DASHBOARD) }
@@ -126,7 +130,7 @@ private fun MorphXposedApp(app: MorphXposedApp, vm: MainViewModel) {
                         onPatch = { vm.patchApp(it) },
                         onToggleAutoPatch = vm::setAutoPatch,
                         onToggleHidden = vm::setHidden,
-                        onRestore = vm::rollback
+                        onRestore = vm::requestRestore
                     )
 
                     Tab.PATCHES -> PatchesScreen(
@@ -175,6 +179,25 @@ private fun MorphXposedApp(app: MorphXposedApp, vm: MainViewModel) {
             }
 
             RunSheet(progress = runProgress, onDismiss = vm::clearRunProgress)
+
+            // A restore that would clear the app's data must be confirmed, not one tap away.
+            restorePrompt?.let { prompt ->
+                AlertDialog(
+                    onDismissRequest = vm::dismissRestore,
+                    title = { Text(RestorePresentation.title(prompt)) },
+                    text = { Text(RestorePresentation.body(prompt)) },
+                    confirmButton = {
+                        TextButton(onClick = vm::confirmRestore) {
+                            Text(RestorePresentation.confirmLabel(prompt))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = vm::dismissRestore) {
+                            Text(RestorePresentation.dismissLabel())
+                        }
+                    }
+                )
+            }
         }
     }
 }

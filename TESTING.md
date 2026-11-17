@@ -129,8 +129,9 @@ BUILD SUCCESSFUL
 | `NotificationsTest` | 8 | 0 | Robolectric + ShadowNotificationManager |
 | `RunRetentionTest` | 6 | 0 | Robolectric + Room |
 | `BridgeToggleTest` | 8 | 0 | Robolectric + Room |
+| `RestorePresentationTest` | 12 | 0 | JVM (pure functions) |
 | Root-mount shell execution | 14 checks | 0 | **real bash via WSL** |
-| **Total** | **251** | **0** (0 skipped) | |
+| **Total** | **263** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -192,6 +193,34 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### A data-loss warning that never reached a screen
+
+Scanning for unused *parameters* (the shape `deviceSdk` had) turned up almost nothing — but it did
+show that `MainViewModel.rollbackAvailability` was never called. Following that led to the worst
+finding of the project.
+
+`RollbackService.availability()` computed `losesAppData`, `RollbackServiceTest` asserted it, and
+**no screen ever displayed it**. Restoring a session-installed app re-installs the original APK,
+which flips the signature back and makes Android clear the app's data. The Restore button in the
+Apps screen did that in one tap, with no warning, and the information needed to warn the user had
+been sitting in a tested function the whole time.
+
+The restore is now confirmed first, and the dialog says what will happen:
+
+* **session-installed** — "This will remove the app's stored data, including any account signed in
+  to it. It cannot be undone." The confirm button reads **"Restore and clear data"**, because a
+  destructive action should not have a label that looks routine.
+* **root-mounted** — the app was never replaced, so removing the mount is lossless and the dialog
+  says data is kept. Claiming otherwise would be needlessly alarming.
+
+The decision and the wording live in `RestorePresentation`, a pure object, so the text that carries
+the warning is covered by tests rather than trusted.
+
+I first wrote this as an integration test driving the ViewModel, and it was flaky — the prompt
+arrives from a background dispatcher, and polling for it raced. Rather than lengthen a sleep, the
+logic moved out of the ViewModel, which removed the race and made the wording testable at the same
+time. A flaky test is worse than no test: it teaches you to ignore failures.
 
 ### A setting that did nothing
 

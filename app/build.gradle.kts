@@ -148,6 +148,8 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     testImplementation(libs.junit)
+    // Needed to drive viewModelScope deterministically under Robolectric.
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     // Verifies the signatures the app produces, using the same library the patcher signs with.
