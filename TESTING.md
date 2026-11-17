@@ -124,8 +124,9 @@ BUILD SUCCESSFUL
 | `LsposedStatusTest` | 9 | 0 | Robolectric + ShadowPackageManager |
 | `ArchitectureSelectionTest` | 8 | 0 | JVM (pure functions) |
 | `RollbackServiceTest` | 8 | 0 | Robolectric + Room |
+| `PatchSourceUpdateStateTest` | 7 | 0 | Robolectric + Room |
 | Root-mount shell execution | 14 checks | 0 | **real bash via WSL** |
-| **Total** | **215** | **0** (0 skipped) | |
+| **Total** | **222** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -187,6 +188,21 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### A third missing feature: sources could not be shown as outdated
+
+Continuing the audit, the brief asks the Patches screen to show bundles that are "available,
+installed, and **outdated**". The schema tracked only `installedTag`, so an update that had been
+published but not yet downloaded was invisible — the screen could say "v2.3.0" but never "v2.4.0
+is available".
+
+`patch_sources.latestTag` now records what a source advertises, written on every check
+(including a check that finds nothing new) and on download, so the two can be compared. The
+Patches screen shows a distinct chip when they differ. The schema version goes to 2; the app
+already used `fallbackToDestructiveMigration`, so existing installs rebuild rather than crash.
+
+The useful property is that a *failed* check preserves both tags: a transient network error must
+not make an app look either up to date or more outdated than it is.
 
 ### Auditing the brief against the code found two missing features
 

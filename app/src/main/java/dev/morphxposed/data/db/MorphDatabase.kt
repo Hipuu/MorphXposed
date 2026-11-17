@@ -12,7 +12,8 @@ import androidx.room.RoomDatabase
         PatchRunEntity::class,
         ApkBackupEntity::class
     ],
-    version = 1,
+    // v2 adds patch_sources.latestTag, so the Patches screen can show an update is available.
+    version = 2,
     exportSchema = false
 )
 abstract class MorphDatabase : RoomDatabase() {

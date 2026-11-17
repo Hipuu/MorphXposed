@@ -47,6 +47,7 @@ interface PatchSourceDao {
             cachedSha256 = :sha256,
             cachedSize = :size,
             requiredPatcherVersion = :requiredPatcherVersion,
+            latestTag = :tag,
             lastError = NULL
         WHERE id = :id
         """
@@ -61,8 +62,14 @@ interface PatchSourceDao {
         requiredPatcherVersion: String?
     )
 
-    @Query("UPDATE patch_sources SET lastCheckedAt = :checkedAt, lastError = NULL WHERE id = :id")
-    suspend fun markChecked(id: Long, checkedAt: Long)
+    @Query(
+        """
+        UPDATE patch_sources
+        SET lastCheckedAt = :checkedAt, latestTag = :latestTag, lastError = NULL
+        WHERE id = :id
+        """
+    )
+    suspend fun markChecked(id: Long, checkedAt: Long, latestTag: String? = null)
 
     @Query("UPDATE patch_sources SET lastError = :error, lastCheckedAt = :checkedAt WHERE id = :id")
     suspend fun markFailed(id: Long, checkedAt: Long, error: String)

@@ -28,6 +28,12 @@ data class PatchSourceEntity(
     val lastCheckedAt: Long = 0,
     /** Version tag of the bundle currently installed from this source. */
     val installedTag: String? = null,
+    /**
+     * Version tag of the newest release the source advertises, which may be newer than
+     * [installedTag]. Recorded on every check so the Patches screen can show an update is
+     * available without downloading it first.
+     */
+    val latestTag: String? = null,
     /** Local file name of the cached bundle. */
     val cachedFileName: String? = null,
     /** SHA-256 of the cached bundle, as published by the release. */

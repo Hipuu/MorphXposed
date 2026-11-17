@@ -109,7 +109,9 @@ class PatchSourceRepository(
                 File(bundlesDir(), source.cachedFileName).isFile
 
             if (unchanged) {
-                db.patchSourceDao().markChecked(source.id, now)
+                // Still record the advertised tag, so the UI can tell "up to date" from
+                // "never checked" without a second request.
+                db.patchSourceDao().markChecked(source.id, now, release.tag)
                 return@withContext RefreshResult.AlreadyCurrent
             }
 

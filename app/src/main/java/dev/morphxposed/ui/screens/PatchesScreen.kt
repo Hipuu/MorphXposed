@@ -105,6 +105,15 @@ private fun SourceCard(
                 } else {
                     StatusChip("Not downloaded", MaterialTheme.colorScheme.outline)
                 }
+                // "Outdated" is a state the brief asks for and that the app can only show if it
+                // remembers what the source advertises, not just what it has installed.
+                val newer = source.latestTag != null && source.latestTag != source.installedTag
+                if (newer) {
+                    StatusChip(
+                        "${source.latestTag} available",
+                        MaterialTheme.colorScheme.tertiary
+                    )
+                }
                 if (source.isOfficial) {
                     StatusChip("Official", MaterialTheme.colorScheme.secondary)
                 }
