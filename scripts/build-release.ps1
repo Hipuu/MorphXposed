@@ -27,14 +27,31 @@ try {
         @{ Src = 'xposed/build/outputs/apk/release/xposed-release.apk'; Name = 'MorpheXposed-Events.apk' }
     )
 
+    $missing = @()
     foreach ($t in $targets) {
         $src = Join-Path $root $t.Src
         if (Test-Path $src) {
             Copy-Item $src (Join-Path $out $t.Name) -Force
             Write-Host "  $($t.Name)"
         } else {
-            Write-Warning "Missing $($t.Src) - it is unsigned; sign it with apksigner first."
+            # A warning here was not enough: without a keystore the release task produces no APK at
+            # all, and the script went on to exit 0 - so CI without signing secrets would report
+            # success while publishing nothing. A release build that produces no release is a
+            # failure, and it has to say so.
+            $missing += $t.Src
         }
+    }
+
+    if ($missing.Count -gt 0) {
+        foreach ($m in $missing) { Write-Host "  missing: $m" -ForegroundColor Red }
+        throw @"
+The release build produced no APK for: $($missing -join ', ')
+
+The usual cause is a missing signing key. The Gradle release task is skipped when
+keystore/release.jks is absent, and MORPHX_KEYSTORE_PATH is unset. Either place a
+keystore at keystore/release.jks (scripts/gen-keystore.ps1) or point
+MORPHX_KEYSTORE_PATH at one. See RELEASING.md for the CI secrets.
+"@
     }
 
     Write-Host "`nArtifacts in $out"
@@ -62,6 +79,11 @@ try {
     } else {
         Write-Warning "Build tools not found; skipping signature and component verification."
     }
+
+    # A release build that produces no release must fail, not warn. Checked here as well as in
+    # the negative-control script so the property is enforced on every run.
+    & (Join-Path $PSScriptRoot 'check-empty-release.ps1') | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "The empty-release guard is missing from build-release.ps1" }
 
     # Prove the verifier itself still discriminates. A check that passes everything is worse than
     # none, and this project has shipped one before (aapt2 dump strings cannot see dex, so the

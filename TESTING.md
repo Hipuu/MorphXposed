@@ -323,6 +323,32 @@ it is more honest than inventing a use for it.
 `RunRetentionTest` pins retention, since "the method exists" was precisely the state that looked
 healthy before.
 
+### A release build that produced no release, and said it succeeded
+
+I cloned the repository to a clean directory — which is what a CI runner does — and ran
+`build-release.ps1` with no keystore, the state CI is in when the signing secrets are absent. It
+**exited 0**.
+
+Neither APK was produced. The Gradle release task is skipped when no signing key is configured, so
+the output files never appeared; the script warned "Missing ... it is unsigned", printed an empty
+artifact listing, and returned success. Verification then found nothing to check and passed
+vacuously. CI would have reported a green release and published nothing.
+
+The missing-artifact branch now collects every absent file and throws, naming the cause:
+
+```
+The release build produced no APK for: app/build/outputs/apk/release/app-release.apk, ...
+keystore/release.jks is absent, and MORPHX_KEYSTORE_PATH is unset. Either place a
+keystore at keystore/release.jks (scripts/gen-keystore.ps1) or point
+MORPHX_KEYSTORE_PATH at one.
+```
+
+`scripts/check-empty-release.ps1` asserts the guard is present and runs inside
+`build-release.ps1`, because the failure mode here is a check quietly reverting to a warning.
+
+This is the same family as the previous rounds — a check that reports success without checking —
+but the first one where the *absence of output* was treated as success rather than an error.
+
 ### Proving the verifier can fail
 
 `verify-apk.ps1` decides whether an APK is fit to ship. It had never been shown to *reject*
