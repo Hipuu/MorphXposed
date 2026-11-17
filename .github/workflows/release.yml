@@ -108,7 +108,17 @@ jobs:
         run: |
           set -euo pipefail
           BT="$ANDROID_HOME/build-tools/37.0.0"
-          for apk in dist/*.apk; do
+          # An unmatched glob stays literal in bash, so `for apk in dist/*.apk` would iterate once
+          # over the string "dist/*.apk" and every check inside would be measuring a file that does
+          # not exist. Fail on that explicitly rather than relying on a tool to notice.
+          shopt -s nullglob
+          apks=(dist/*.apk)
+          shopt -u nullglob
+          if [ "${#apks[@]}" -eq 0 ]; then
+            echo "::error::No APKs were produced. Nothing to verify, so nothing may be published."
+            exit 1
+          fi
+          for apk in "${apks[@]}"; do
             echo "== $apk"
             "$BT/apksigner" verify --print-certs "$apk"
             "$BT/aapt2" dump badging "$apk" | head -1
@@ -118,12 +128,22 @@ jobs:
         run: |
           set -euo pipefail
           BT="$ANDROID_HOME/build-tools/37.0.0"
-          for apk in dist/*.apk; do
+          # Same empty-glob trap. Checked separately from the verify step because publishing an
+          # unsigned APK is the one outcome that must be impossible.
+          shopt -s nullglob
+          apks=(dist/*.apk)
+          shopt -u nullglob
+          if [ "${#apks[@]}" -eq 0 ]; then
+            echo "::error::No APKs found to check. Refusing to publish."
+            exit 1
+          fi
+          for apk in "${apks[@]}"; do
             # apksigner exits non-zero and prints "DOES NOT VERIFY" for an unsigned APK.
             if ! "$BT/apksigner" verify "$apk"; then
               echo "::error::$apk is not signed. A release must never be published unsigned."
               exit 1
             fi
+            echo "  signed: $apk"
           done
 
       - name: Upload build outputs

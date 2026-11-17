@@ -65,6 +65,25 @@ password, so `KEY_ALIAS=morphxposed` and `KEYSTORE_PASSWORD=morphxposed-release`
 * **It does not sign with a throwaway key.** A release that changes signature between runs cannot
   update an installed app.
 
+## Checking the workflow without a runner
+
+`scripts/workflow-check/` parses the workflow, extracts its inline `run:` blocks, syntax-checks them
+with bash, and proves the signature gate rejects both an empty `dist` and an unsigned APK:
+
+```bash
+bash scripts/workflow-check/run.sh          # YAML + bash (needs node)
+bash scripts/workflow-check/check-bash.sh   # bash half only
+```
+
+It is not a substitute for a real run — it cannot prove the actions resolve or that the Linux build
+succeeds — but it catches the failures that come from the workflow itself.
+
+Writing it found a real defect: `for apk in dist/*.apk` does **not** iterate zero times when `dist`
+is empty. Bash leaves the pattern literal, so the loop runs once over the string `dist/*.apk`, and
+every check inside measures a file that does not exist. The signature gate only failed because
+`apksigner` objected to the bogus path — it would have passed for as long as that happened to hold.
+Both loops now collect into an array with `nullglob` and refuse to continue when it is empty.
+
 ## If the workflow fails
 
 | Symptom | Cause |
