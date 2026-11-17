@@ -38,9 +38,26 @@
             android:name=".ModuleInfoActivity"
             android:exported="true"
             android:label="@string/module_name">
+            <!-- Launchable from the app drawer for anyone who installed the module directly. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+              LSPosed (and classic Xposed) show a "module settings" entry only for a module
+              that declares one of these actions. Without them the user is browsing LSPosed
+              Manager with no guidance from the module itself, which is exactly where they
+              need to know to scope it to System Framework. Both actions are declared because
+              LSPosed uses its own and forks still use the original.
+            -->
+            <intent-filter>
+                <action android:name="org.lsposed.manager.action.OPEN_MODULE_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 

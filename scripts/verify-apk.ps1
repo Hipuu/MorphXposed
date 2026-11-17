@@ -133,6 +133,25 @@ try {
 
         Write-Host "OK: bridge permission is signature-guarded and the receiver filters its action" -ForegroundColor Green
     }
+
+    # The events module must be openable from LSPosed Manager. LSPosed shows a "module settings"
+    # entry only for a module declaring one of these actions; without them the user browses
+    # LSPosed with no guidance from the module itself, which is exactly where they need to learn
+    # to scope it to System Framework. Checked on every release because the strings are easy to
+    # lose in a manifest refactor and nothing else would notice their absence.
+    if ($Apk -like "*Events*") {
+        Write-Host "Checking that LSPosed can open the module settings screen..."
+        $manifestText = $tree -join "`n"
+        foreach ($action in @(
+            "org.lsposed.manager.action.OPEN_MODULE_SETTINGS",
+            "de.robv.android.xposed.category.MODULE_SETTINGS"
+        )) {
+            if ($manifestText -notmatch [regex]::Escape($action)) {
+                throw "The events module does not declare $action, so LSPosed cannot open its settings screen"
+            }
+        }
+        Write-Host "OK: the module is openable from LSPosed Manager" -ForegroundColor Green
+    }
 } finally {
     Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 }

@@ -61,6 +61,18 @@ patcher, and is not required — the scheduled check is the guaranteed path.
 
 ---
 
+## Documentation
+
+* [REQUIREMENTS.md](REQUIREMENTS.md) - every requirement in the project brief, mapped to the code
+  that implements it and the test or build check that proves it. Read this if you want to know
+  what is verified and what is not.
+* [ARCHITECTURE.md](ARCHITECTURE.md) - how Morphe patching actually works and why the app is
+  built this way.
+* [INSTALL.md](INSTALL.md) - installation, LSPosed activation and scope.
+* [TESTING.md](TESTING.md) - test results and the bugs each harness found.
+
+---
+
 ## Requirements
 
 * Android 8.0+ (API 26), targeting API 37

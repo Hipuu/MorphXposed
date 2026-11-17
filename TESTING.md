@@ -191,6 +191,28 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
 
+### The audit is now a document, not a habit
+
+Three rounds of finding missing features was the signal to stop scanning ad hoc.
+[REQUIREMENTS.md](REQUIREMENTS.md) maps every requirement in the brief to the code that implements
+it and the test or build check that proves it, in ten tables matching the brief's own structure.
+Anything without evidence is visible rather than assumed.
+
+Writing it immediately caught a fourth gap and a false claim of my own:
+
+**LSPosed could not open the module's settings screen.** `ModuleInfoActivity` existed and
+contained good scope guidance, but the manifest declared only `MAIN`/`LAUNCHER`. LSPosed shows a
+"module settings" entry **only** for a module declaring `OPEN_MODULE_SETTINGS` (or the older
+`MODULE_SETTINGS`). So the guidance was unreachable from exactly the place a user needs it —
+LSPosed Manager, where they go to set the scope. Both actions are now declared.
+
+**And the claim.** The first draft of `REQUIREMENTS.md` said `verify-apk.ps1` checked those intent
+filters. It did not. Rather than soften the document, the check was added — including a negative
+control confirming the main APK does *not* declare those actions, so the check is discriminating
+rather than a tautology. It first silently did nothing, because `build-release.ps1` passes
+`-SkipBridgeCheck` for the Events APK and the check had been placed inside that guard; it now sits
+outside and runs on every release.
+
 ### Two more gaps: a dead notification, and no permissions surface
 
 **`actionRequired` was never called.** The brief asks the app to notify when a patch "requires
