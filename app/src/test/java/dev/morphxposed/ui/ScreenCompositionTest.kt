@@ -348,6 +348,8 @@ class ScreenCompositionTest {
 
     @Test
     fun `settings screen renders installer choices and the root-mount caveat`() {
+        val lsposedText = "LSPosed found; install MorphXposed Events to enable real-time events"
+        val lsposedOn = false
         compose.setContent {
             MorphXposedTheme {
                 SettingsScreen(
@@ -363,7 +365,10 @@ class ScreenCompositionTest {
                     onVerboseLogging = {},
                     onAddSource = {},
                     onRemoveSource = {},
-                    onGithubToken = {}
+                    onGithubToken = {},
+                    lsposedStatus = lsposedText,
+                    lsposedActive = lsposedOn,
+                    onRefreshLsposed = {}
                 )
             }
         }
@@ -383,6 +388,8 @@ class ScreenCompositionTest {
 
     @Test
     fun `settings screen explains the root mount path when selected`() {
+        val lsposedText = "Events module active - events are arriving"
+        val lsposedOn = true
         compose.setContent {
             MorphXposedTheme {
                 SettingsScreen(
@@ -398,7 +405,10 @@ class ScreenCompositionTest {
                     onVerboseLogging = {},
                     onAddSource = {},
                     onRemoveSource = {},
-                    onGithubToken = {}
+                    onGithubToken = {},
+                    lsposedStatus = lsposedText,
+                    lsposedActive = lsposedOn,
+                    onRefreshLsposed = {}
                 )
             }
         }

@@ -1,4 +1,4 @@
-﻿package dev.morphxposed.ui.viewmodel
+package dev.morphxposed.ui.viewmodel
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -65,6 +65,16 @@ class MainViewModel(private val app: MorphXposedApp) : ViewModel() {
     val runs: StateFlow<List<PatchRunEntity>> =
         db.patchRunDao().observeRecent().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** LSPosed / events-bridge status, for the settings row. */
+    private val lsposedStatusReader by lazy { dev.morphxposed.automation.LsposedStatus(app) }
+    private val _lsposed = MutableStateFlow(dev.morphxposed.automation.LsposedStatus.State(false, null, false, null, false))
+    val lsposedState: StateFlow<dev.morphxposed.automation.LsposedStatus.State> = _lsposed.asStateFlow()
+
+    /** Re-reads what the platform will report about LSPosed. */
+    fun refreshLsposed() {
+        _lsposed.value = lsposedStatusReader.read()
+    }
+
     private val _busy = MutableStateFlow<String?>(null)
     val busy: StateFlow<String?> = _busy.asStateFlow()
 
@@ -109,6 +119,7 @@ class MainViewModel(private val app: MorphXposedApp) : ViewModel() {
         )
 
     init {
+        refreshLsposed()
         viewModelScope.launch {
             runCatching { coordinator.refreshInstalledApps() }
             reloadApps()

@@ -121,8 +121,9 @@ BUILD SUCCESSFUL
 | `UpdateCheckPlanTest` | 4 | 0 | JVM (pure functions) |
 | `PackageNamesTest` (module) | 7 | 0 | JVM (module) |
 | `DiscoverThenPatchEndToEndTest` | 5 | 0 | Robolectric + ShadowPackageManager |
+| `LsposedStatusTest` | 9 | 0 | Robolectric + ShadowPackageManager |
 | Root-mount shell execution | 14 checks | 0 | **real bash via WSL** |
-| **Total** | **190** | **0** (0 skipped) | |
+| **Total** | **199** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -184,6 +185,31 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### LSPosed state is reported honestly
+
+The brief asks the app to "detect whether LSPosed is installed and whether the module is
+enabled". The first half is a package lookup; the second half **is not possible**, and the
+implementation says so rather than faking it.
+
+LSPosed exposes no API for a module to read its own activation state. So `LsposedStatus` reports
+only what the platform will answer:
+
+* whether an LSPosed manager is installed (`org.lsposed.manager`, plus the LSPatch and
+  alternate manager ids), with its version;
+* whether the MorphXposed Events APK is installed, including the `.debug` variant — missing that
+  would tell a developer their own installed module is absent;
+* whether the bridge has **delivered an event since launch**, which is the only trustworthy proof
+  the module is active.
+
+The settings row therefore never shows a green tick it cannot justify. With LSPosed and the
+module installed but silent it says *"Activation cannot be read; enable it in LSPosed Manager and
+scope it to System Framework"* — because a module that is installed but out of scope, disabled,
+or awaiting a reboot is indistinguishable from a working one until it reports something.
+
+`LsposedStatusTest` pins the detection and, more importantly, the wording: no state other than an
+observed event may imply the module is running. A settings row that confidently claims "active"
+because a file exists would be worse than one that admits it does not know.
 
 ### Discovery is exercised against a package the platform believes is installed
 

@@ -45,7 +45,10 @@ fun SettingsScreen(
     onVerboseLogging: (Boolean) -> Unit,
     onAddSource: (String) -> Unit,
     onRemoveSource: (Long) -> Unit,
-    onGithubToken: (String) -> Unit
+    onGithubToken: (String) -> Unit,
+    lsposedStatus: String,
+    lsposedActive: Boolean,
+    onRefreshLsposed: () -> Unit
 ) {
     var showAddSource by remember { mutableStateOf(false) }
     var showToken by remember { mutableStateOf(false) }
@@ -216,6 +219,27 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     TextButton(onClick = { showToken = true }) { Text("Set token") }
+                }
+            }
+
+            // ---- LSPosed events module ----
+            item {
+                SettingsCard("LSPosed events module") {
+                    Text(
+                        lsposedStatus,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (lsposedActive) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "LSPosed exposes no way for a module to read its own activation state, so " +
+                            "this reports only what the platform will answer: whether LSPosed and " +
+                            "the module are installed, and whether an event has actually arrived " +
+                            "since launch. An arriving event is the only real proof it is active.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    TextButton(onClick = onRefreshLsposed) { Text("Re-check") }
                 }
             }
 

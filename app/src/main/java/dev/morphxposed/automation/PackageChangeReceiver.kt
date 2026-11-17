@@ -33,7 +33,13 @@ class PackageChangeReceiver : BroadcastReceiver() {
         // Route by source. The bridge is identified by its action, not by a data URI, because the
         // intent is not a package broadcast and carries no scheme.
         val event: PackageEvent = when (action) {
-            ACTION_LSPOSED_EVENT -> fromBridge(intent) ?: return
+            ACTION_LSPOSED_EVENT -> {
+                // Record that the bridge works: this is the only trustworthy evidence that the
+                // module is active, since LSPosed cannot be asked.
+                val bridged = fromBridge(intent) ?: return
+                BridgeObservations.record(bridged.kind.name)
+                bridged
+            }
             Intent.ACTION_PACKAGE_ADDED -> {
                 val pkg = packageFromData(intent) ?: return
                 PackageEvent(
