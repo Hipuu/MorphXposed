@@ -20,6 +20,9 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import dev.morphxposed.ui.ApkSharing
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
@@ -83,7 +86,27 @@ private fun MorphXposedApp(app: MorphXposedApp, vm: MainViewModel) {
     val bridgeEnabled by vm.bridgeEnabled.collectAsStateWithLifecycle()
     val restorePrompt by vm.restorePrompt.collectAsStateWithLifecycle()
 
+
     val snackbar = remember { SnackbarHostState() }
+    // Sharing needs the Activity context and a chooser, so it is wired here rather than in the
+    // ViewModel; the file itself comes from the recorded run.
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val context = LocalContext.current
+    val onShareApk: (String) -> Unit = { packageName ->
+        scope.launch {
+            val apk = vm.shareableApk(packageName)
+            val uri = ApkSharing.contentUri(context, apk)
+            if (uri == null) {
+                snackbar.showSnackbar("No patched APK is on disk for this app.")
+            } else {
+                runCatching {
+                    context.startActivity(ApkSharing.chooser(uri, ApkSharing.displayName(apk!!)))
+                }.onFailure {
+                    snackbar.showSnackbar("No app available to share with.")
+                }
+            }
+        }
+    }
     var tab by remember { mutableStateOf(Tab.DASHBOARD) }
     LaunchedEffect(message) {
         message?.let {
@@ -130,7 +153,8 @@ private fun MorphXposedApp(app: MorphXposedApp, vm: MainViewModel) {
                         onPatch = { vm.patchApp(it) },
                         onToggleAutoPatch = vm::setAutoPatch,
                         onToggleHidden = vm::setHidden,
-                        onRestore = vm::requestRestore
+                        onRestore = vm::requestRestore,
+                        onShare = onShareApk
                     )
 
                     Tab.PATCHES -> PatchesScreen(

@@ -161,6 +161,13 @@ class MainViewModel(private val app: MorphXposedApp) : ViewModel() {
         }
     }
 
+    /** The most recent patched APK for [packageName], if it is still on disk. */
+    suspend fun shareableApk(packageName: String): java.io.File? = runCatching {
+        val run = db.patchRunDao().latestFor(packageName) ?: return@runCatching null
+        val path = run.outputApkPath ?: return@runCatching null
+        java.io.File(path).takeIf { it.isFile && it.length() > 0 }
+    }.getOrNull()
+
     /** Mirrors settings.lsposedBridgeEnabled so the toggle can render its state. */
     val bridgeEnabled: StateFlow<Boolean> = settings.lsposedBridgeEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)

@@ -170,6 +170,10 @@ class PatchOrchestrator(
             val signedOutput = File(outputDir, "${packageName}-${app.versionName}-patched.apk")
 
             val applied = ArrayList<String>()
+            // Keep every failure with its patch name. Collapsing them into a single string kept
+            // only the last message, and `failedPatches` was then written as "" regardless, so the
+            // Logs screen could never say which patch failed or why.
+            val failedPatches = LinkedHashMap<String, String>()
             var patchFailure: String? = null
 
             engine.run(
@@ -183,7 +187,10 @@ class PatchOrchestrator(
                 when (event) {
                     is PatchEvent.Log -> appendLog(event.line)
                     is PatchEvent.PatchSucceeded -> applied += event.name
-                    is PatchEvent.PatchFailed -> patchFailure = event.message
+                    is PatchEvent.PatchFailed -> {
+                        failedPatches[event.name] = event.message
+                        patchFailure = event.message
+                    }
                     is PatchEvent.Error -> patchFailure = event.message
                     else -> Unit
                 }
@@ -244,7 +251,9 @@ class PatchOrchestrator(
                 status = status,
                 finishedAt = System.currentTimeMillis(),
                 applied = applied.joinToString(","),
-                failed = "",
+                failed = failedPatches.entries.joinToString("\n") { (name, message) ->
+                    "$name: $message"
+                },
                 installed = installed,
                 strategy = installResult?.strategy?.name ?: snap.installStrategy.name,
                 log = log.toString(),

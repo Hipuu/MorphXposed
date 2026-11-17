@@ -155,6 +155,17 @@ private fun RunDetailDialog(run: PatchRunEntity, onDismiss: () -> Unit) {
                         color = MaterialTheme.colorScheme.error
                     )
                 }
+                // Which patches failed, and why. This was recorded as "" for every run, so a
+                // partial failure showed "Applied 2 patches" with no way to learn what the third
+                // one hit.
+                if (run.failedPatches.isNotBlank()) {
+                    Text("Failed patches", style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        run.failedPatches,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
                 if (run.log.isNotBlank()) {
                     Text("Log", style = MaterialTheme.typography.labelMedium)
                     Text(

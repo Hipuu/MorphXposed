@@ -55,7 +55,8 @@ fun AppsScreen(
     onPatch: (String) -> Unit,
     onToggleAutoPatch: (String, Boolean) -> Unit,
     onToggleHidden: (String, Boolean) -> Unit,
-    onRestore: ((String) -> Unit)? = null
+    onRestore: ((String) -> Unit)? = null,
+    onShare: ((String) -> Unit)? = null
 ) {
     var filter by remember { mutableStateOf(AppFilter.ALL) }
     var detail by remember { mutableStateOf<AppUiModel?>(null) }
@@ -127,7 +128,8 @@ fun AppsScreen(
             },
             onToggleAutoPatch = { onToggleAutoPatch(model.app.packageName, it) },
             onToggleHidden = { onToggleHidden(model.app.packageName, it) },
-            onRestore = onRestore?.let { restore -> { restore(model.app.packageName) } }
+            onRestore = onRestore?.let { restore -> { restore(model.app.packageName) } },
+            onShare = onShare?.let { share -> { share(model.app.packageName) } }
         )
     }
 }
@@ -211,7 +213,8 @@ private fun AppDetailDialog(
     onPatch: () -> Unit,
     onToggleAutoPatch: (Boolean) -> Unit,
     onToggleHidden: (Boolean) -> Unit,
-    onRestore: (() -> Unit)? = null
+    onRestore: (() -> Unit)? = null,
+    onShare: (() -> Unit)? = null
 ) {
     val report = model.report
     AlertDialog(
@@ -251,6 +254,11 @@ private fun AppDetailDialog(
             Row {
                 if (onRestore != null && model.app.lastPatchedAt > 0) {
                     TextButton(onClick = onRestore) { Text("Restore") }
+                }
+                // Makes "the APK was exported" a claim the user can act on: without this the
+                // signed APK sits in app-private storage with no way out.
+                if (onShare != null && model.app.lastPatchedAt > 0) {
+                    TextButton(onClick = onShare) { Text("Share APK") }
                 }
                 TextButton(onClick = { onToggleHidden(!model.app.hidden) }) {
                     Text(if (model.app.hidden) "Unhide" else "Hide")

@@ -56,7 +56,8 @@ Totals are in [TESTING.md](TESTING.md).
 | Option to automatically apply compatible patches | `AutomationScreen` + `SettingsStore` flags | `SettingsAndScannerTest`, `ScreenCompositionTest` |
 | Apply on install or update | `PatchCoordinator.runBatch(TriggerReason.APP_INSTALLED/APP_UPDATED)` | `AutoPatchPolicyTest` |
 | Avoid unnecessary repatching | skip-if-unchanged compares `lastPatchedVersion` **and** `lastPatchedBundleSha256` against the resolved bundle | `OrchestratorLogicTest` |
-| Display detailed progress and errors | `PatchEvent` → `RunPresentation` → `RunSheet` | `RunPresentationTest` (19) |
+| Display detailed progress and errors | `PatchEvent` → `RunPresentation` → `RunSheet`; per-patch failures recorded and shown in Logs | `RunPresentationTest` (19), `FailedPatchRecordingTest` (4) |
+| Reach a patched APK that could not be installed | "Share APK" resolves the file through `FileProvider` and opens a chooser | `ApkSharingTest` (13) |
 
 ## 5. LSPosed integration
 

@@ -130,8 +130,10 @@ BUILD SUCCESSFUL
 | `RunRetentionTest` | 6 | 0 | Robolectric + Room |
 | `BridgeToggleTest` | 8 | 0 | Robolectric + Room |
 | `RestorePresentationTest` | 12 | 0 | JVM (pure functions) |
+| `FailedPatchRecordingTest` | 4 | 0 | Robolectric + Room |
+| `ApkSharingTest` | 13 | 0 | Robolectric + Robolectric shadows |
 | Root-mount shell execution | 14 checks | 0 | **real bash via WSL** |
-| **Total** | **263** | **0** (0 skipped) | |
+| **Total** | **280** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -193,6 +195,32 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### Two more: failures that were never recorded, and an export nobody could reach
+
+Scanning for model fields no screen reads produced a short list. Two were real.
+
+**`failedPatches` was always empty.** The orchestrator collected failures into a single
+`patchFailure` string — keeping only the last message — and then wrote `failed = ""` regardless.
+So a run where three patches were attempted showed "Applied 1 patch" in the Logs screen with no
+way to learn which two failed or why, even though `PatchEvent.PatchFailed` carried both the name
+and the message. Failures are now collected per patch and persisted, and the Logs detail dialog
+shows them.
+
+**"APK exported instead" pointed at a file nobody could open.** When no installer is available the
+orchestrator still produces a signed APK under `filesDir/patched` and reports it as exported. The
+`FileProvider` and its `file_paths.xml` — including a `files-path` entry for exactly that
+directory — were declared from the first version and never used. An unrooted user had no way to
+reach the file. The Apps screen now offers **Share APK**, which resolves the file through the
+provider and fires a chooser.
+
+That also required being honest about a limit: `FileProvider.getUriForFile` **cannot be executed on
+this machine**. Robolectric supplies a Windows path containing an 8.3 short name (`ADMINI~1`) while
+`getCanonicalPath()` expands it to `Administrator`, so the prefix match inside `SimplePathStrategy`
+fails no matter how the provider is configured. That is a Windows artifact, not a defect. Rather
+than assert something I cannot run, the two rules that `FileProvider` actually enforces — the file
+must exist and must sit under an exposed root — are tested directly, and the intent shape is tested
+against a synthetic URI. The gap is stated here rather than papered over.
 
 ### A data-loss warning that never reached a screen
 
