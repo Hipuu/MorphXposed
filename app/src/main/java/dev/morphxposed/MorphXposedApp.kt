@@ -42,22 +42,32 @@ class MorphXposedApp : Application() {
         }
 
         appScope.launch {
-            runCatching {
-                val notifications = getKoin().get<dev.morphxposed.automation.Notifications>()
-                notifications.ensureChannels()
+            // Each step is isolated. They were wrapped in a single runCatching, so a failure in
+            // notification-channel setup would have skipped seeding the source *and* scheduling
+            // the periodic check — silently disabling the automation path that is meant to be the
+            // guaranteed one. Independent failures stay independent.
+            step("notification channels") {
+                getKoin().get<dev.morphxposed.automation.Notifications>().ensureChannels()
+            }
 
-                // Seed the official Morphe source on first run.
-                sourceRepository.seedDefaults()
+            // Seed the official Morphe source on first run.
+            step("seed sources") { sourceRepository.seedDefaults() }
 
-                // Schedule or cancel the periodic check according to the user's settings.
+            // Schedule or cancel the periodic check according to the user's settings.
+            step("schedule update check") {
                 val snap = settings.snapshot()
                 if (snap.autoCheckForPatchUpdates) {
                     UpdateCheckWorker.schedule(this@MorphXposedApp, snap.updateCheckIntervalHours)
                 } else {
                     UpdateCheckWorker.cancel(this@MorphXposedApp)
                 }
-            }.onFailure { Log.e(TAG, "Startup failed", it) }
+            }
         }
+    }
+
+    /** Runs one startup step, logging rather than propagating a failure. */
+    private inline fun step(name: String, block: () -> Unit) {
+        runCatching { block() }.onFailure { Log.e(TAG, "Startup step '$name' failed", it) }
     }
 
     private companion object {
