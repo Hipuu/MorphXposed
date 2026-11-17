@@ -71,9 +71,19 @@ class MainViewModel(private val app: MorphXposedApp) : ViewModel() {
     private val _lsposed = MutableStateFlow(dev.morphxposed.automation.LsposedStatus.State(false, null, false, null, false))
     val lsposedState: StateFlow<dev.morphxposed.automation.LsposedStatus.State> = _lsposed.asStateFlow()
 
-    /** Re-reads what the platform will report about LSPosed. */
+    /** Prerequisites the app depends on, shown in Settings. */
+    private val permissionReader by lazy { getKoin().get<dev.morphxposed.automation.PermissionStatus>() }
+    private val _permissions = MutableStateFlow(emptyList<dev.morphxposed.automation.PermissionStatus.Item>())
+    val permissions: StateFlow<List<dev.morphxposed.automation.PermissionStatus.Item>> =
+        _permissions.asStateFlow()
+
+    /**
+     * Re-reads what the platform will report about LSPosed, and the prerequisite list with it:
+     * granting a permission elsewhere and returning here should update both.
+     */
     fun refreshLsposed() {
         _lsposed.value = lsposedStatusReader.read()
+        _permissions.value = runCatching { permissionReader.read() }.getOrDefault(emptyList())
     }
 
     /** Rollback support, reachable from the app detail dialog. */

@@ -102,6 +102,15 @@ class PatchCoordinator(
                     if (snap.notifyOnSuccess) {
                         notifications.patchSucceeded(app.label, result.patches, result.installed)
                     }
+                    // A patch that produced an APK but did not reach the device needs the user
+                    // to act. Saying only "patched" would leave them believing it is live.
+                    if (!result.installed && snap.notifyOnFailure) {
+                        notifications.actionRequired(
+                            app.label,
+                            "Patched but not installed. Open MorphXposed to finish, or check " +
+                                "the installer permission."
+                        )
+                    }
                 }
 
                 is RunOne.Failed -> {

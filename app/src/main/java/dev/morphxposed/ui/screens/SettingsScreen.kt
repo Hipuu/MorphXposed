@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import dev.morphxposed.data.prefs.InstallStrategy
 import dev.morphxposed.data.prefs.ThemeMode
 import dev.morphxposed.data.db.PatchSourceEntity
+import dev.morphxposed.ui.components.StatusChip
 import dev.morphxposed.ui.viewmodel.SettingsUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,7 +49,8 @@ fun SettingsScreen(
     onGithubToken: (String) -> Unit,
     lsposedStatus: String,
     lsposedActive: Boolean,
-    onRefreshLsposed: () -> Unit
+    onRefreshLsposed: () -> Unit,
+    permissions: List<dev.morphxposed.automation.PermissionStatus.Item>
 ) {
     var showAddSource by remember { mutableStateOf(false) }
     var showToken by remember { mutableStateOf(false) }
@@ -219,6 +221,53 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     TextButton(onClick = { showToken = true }) { Text("Set token") }
+                }
+            }
+
+            // ---- Permissions ----
+            item {
+                SettingsCard("Permissions and prerequisites") {
+                    Text(
+                        "What MorphXposed needs, and whether it currently has it.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    permissions.forEach { item ->
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                StatusChip(
+                                    if (item.granted) "Granted" else "Missing",
+                                    if (item.granted) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    item.name,
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                if (!item.required) {
+                                    Text(
+                                        " (optional)",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Text(
+                                item.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            item.remedy?.let { remedy ->
+                                Text(
+                                    remedy,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                        }
+                    }
+                    TextButton(onClick = onRefreshLsposed) { Text("Re-check") }
                 }
             }
 

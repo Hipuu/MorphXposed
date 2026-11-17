@@ -76,6 +76,7 @@ private fun MorphXposedApp(app: MorphXposedApp, vm: MainViewModel) {
     val lsposed by vm.lsposedState.collectAsStateWithLifecycle()
     val lsposedStatus = lsposed.describe()
     val lsposedActive = lsposed.bridgeObserved
+    val permissions by vm.permissions.collectAsStateWithLifecycle()
 
     val snackbar = remember { SnackbarHostState() }
     var tab by remember { mutableStateOf(Tab.DASHBOARD) }
@@ -164,7 +165,8 @@ private fun MorphXposedApp(app: MorphXposedApp, vm: MainViewModel) {
                         onGithubToken = vm::setGithubToken,
                         lsposedStatus = lsposedStatus,
                         lsposedActive = lsposedActive,
-                        onRefreshLsposed = vm::refreshLsposed
+                        onRefreshLsposed = vm::refreshLsposed,
+                        permissions = permissions
                     )
                 }
             }

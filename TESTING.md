@@ -125,8 +125,10 @@ BUILD SUCCESSFUL
 | `ArchitectureSelectionTest` | 8 | 0 | JVM (pure functions) |
 | `RollbackServiceTest` | 8 | 0 | Robolectric + Room |
 | `PatchSourceUpdateStateTest` | 7 | 0 | Robolectric + Room |
+| `PermissionStatusTest` | 7 | 0 | Robolectric |
+| `NotificationsTest` | 8 | 0 | Robolectric + ShadowNotificationManager |
 | Root-mount shell execution | 14 checks | 0 | **real bash via WSL** |
-| **Total** | **222** | **0** (0 skipped) | |
+| **Total** | **237** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -188,6 +190,32 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### Two more gaps: a dead notification, and no permissions surface
+
+**`actionRequired` was never called.** The brief asks the app to notify when a patch "requires
+intervention". The method existed from the first version and no code path invoked it — a
+defined-but-unreachable notification is indistinguishable from a missing one, and it made the
+capability look done. It is now raised when a patch succeeds but does **not** reach the device:
+that is precisely the case where the user must act, and where saying only "patched" would leave
+them believing the app is live.
+
+**Settings had no permissions surface.** The brief lists "permissions" as a Settings concern.
+`PermissionStatus` now reports each prerequisite as a plain question to the platform, with what it
+is for, whether it is required, and what to do when it is missing:
+
+* **install permission** — the only *required* item; without it a patched APK is saved but never
+  installed;
+* **notifications** — optional, and treated as granted before API 33 where the runtime permission
+  does not exist;
+* **root** — optional; without it the session installer must replace the stock app, clearing its
+  data;
+* **LSPosed** — optional; automation falls back to the scheduled check.
+
+`NotificationsTest` pins that every notification type actually reaches the platform, since a
+method that silently does nothing was exactly the failure here. `PermissionStatusTest` pins that
+the install item never contradicts `canRequestPackageInstalls`, and that a missing prerequisite
+always carries a remedy.
 
 ### A third missing feature: sources could not be shown as outdated
 

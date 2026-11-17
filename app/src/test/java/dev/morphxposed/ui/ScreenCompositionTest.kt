@@ -350,6 +350,20 @@ class ScreenCompositionTest {
     fun `settings screen renders installer choices and the root-mount caveat`() {
         val lsposedText = "LSPosed found; install MorphXposed Events to enable real-time events"
         val lsposedOn = false
+        val permissions = listOf(
+            dev.morphxposed.automation.PermissionStatus.Item(
+                name = "Install apps", granted = false,
+                description = "Needed to install a patched APK.",
+                remedy = "Grant install permission for MorphXposed.",
+                required = true
+            ),
+            dev.morphxposed.automation.PermissionStatus.Item(
+                name = "Root access", granted = false,
+                description = "Optional.",
+                remedy = "Grant root, or use the session installer.",
+                required = false
+            )
+        )
         compose.setContent {
             MorphXposedTheme {
                 SettingsScreen(
@@ -368,7 +382,8 @@ class ScreenCompositionTest {
                     onGithubToken = {},
                     lsposedStatus = lsposedText,
                     lsposedActive = lsposedOn,
-                    onRefreshLsposed = {}
+                    onRefreshLsposed = {},
+                    permissions = permissions
                 )
             }
         }
@@ -390,6 +405,7 @@ class ScreenCompositionTest {
     fun `settings screen explains the root mount path when selected`() {
         val lsposedText = "Events module active - events are arriving"
         val lsposedOn = true
+        val permissions = emptyList<dev.morphxposed.automation.PermissionStatus.Item>()
         compose.setContent {
             MorphXposedTheme {
                 SettingsScreen(
@@ -408,7 +424,8 @@ class ScreenCompositionTest {
                     onGithubToken = {},
                     lsposedStatus = lsposedText,
                     lsposedActive = lsposedOn,
-                    onRefreshLsposed = {}
+                    onRefreshLsposed = {},
+                    permissions = permissions
                 )
             }
         }

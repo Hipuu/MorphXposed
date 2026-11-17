@@ -37,6 +37,7 @@ val appModule: Module = module {
     single { get<MorphDatabase>().apkBackupDao() }
 
     single { Notifications(androidContext()) }
+    single { dev.morphxposed.automation.PermissionStatus(androidContext()) }
 
     single { AppScanner(androidContext()) }
     single { BundleInspector() }
