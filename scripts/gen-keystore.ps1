@@ -28,7 +28,7 @@ $password = if ($env:MORPHX_KEYSTORE_PASSWORD) { $env:MORPHX_KEYSTORE_PASSWORD }
     -validity 10000 `
     -storepass $password `
     -keypass $password `
-    -dname "CN=MorphXposed, OU=Release, O=MorphXposed, L=Unknown, ST=Unknown, C=US"
+    -dname "CN=MorpheXposed, OU=Release, O=MorpheXposed, L=Unknown, ST=Unknown, C=US"
 
 if ($LASTEXITCODE -ne 0) { throw "keytool failed with exit code $LASTEXITCODE" }
 

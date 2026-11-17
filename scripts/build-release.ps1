@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 Push-Location $root
 try {
-    Write-Host "Building MorphXposed release artifacts..."
+    Write-Host "Building MorpheXposed release artifacts..."
     & ./gradlew.bat :app:assembleRelease :xposed:assembleRelease --no-daemon
     if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE" }
 
@@ -21,8 +21,8 @@ try {
     New-Item -ItemType Directory -Force -Path $out | Out-Null
 
     $targets = @(
-        @{ Src = 'app/build/outputs/apk/release/app-release.apk';     Name = 'MorphXposed.apk' },
-        @{ Src = 'xposed/build/outputs/apk/release/xposed-release.apk'; Name = 'MorphXposed-Events.apk' }
+        @{ Src = 'app/build/outputs/apk/release/app-release.apk';     Name = 'MorpheXposed.apk' },
+        @{ Src = 'xposed/build/outputs/apk/release/xposed-release.apk'; Name = 'MorpheXposed-Events.apk' }
     )
 
     foreach ($t in $targets) {
@@ -44,7 +44,10 @@ try {
     Write-Host "`nVerifying artifacts..."
     $buildTools = if ($env:ANDROID_HOME) { Join-Path $env:ANDROID_HOME 'build-tools/37.0.0' } else { $null }
     if ($buildTools -and (Test-Path $buildTools)) {
-        foreach ($apk in Get-ChildItem $out -Filter *.apk) {
+        # Only the artifacts this run produced. Globbing *.apk would also verify leftovers from a
+    # previous name or version and fail on them, which says nothing about this build.
+    $produced = @($targets | ForEach-Object { Join-Path $out $_.Name })
+    foreach ($apk in $produced | Where-Object { Test-Path $_ } | ForEach-Object { Get-Item $_ }) {
             $verify = & (Join-Path $buildTools 'apksigner.bat') verify $apk.FullName 2>&1
             if ($LASTEXITCODE -ne 0) { throw "$($apk.Name) is not correctly signed" }
             Write-Host "  signed: $($apk.Name)"

@@ -14,11 +14,11 @@ plugins {
  * app. It inherits the Xposed API's own `AndroidManifest` restrictions, hence the standalone variant.
  */
 android {
-    namespace = "dev.morphxposed.events"
+    namespace = "dev.morphexposed.events"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "dev.morphxposed.events"
+        applicationId = "dev.morphexposed.events"
         minSdk = 26
         targetSdk = 37
         versionCode = 1

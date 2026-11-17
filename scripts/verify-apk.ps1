@@ -109,9 +109,9 @@ try {
         Write-Host "Checking LSPosed bridge contract..."
         $all = $tree -join "`n"
 
-        $declaresPermission = $all -match 'dev\.morphxposed\.permission\.BRIDGE'
+        $declaresPermission = $all -match 'dev\.morphexposed\.permission\.BRIDGE'
         if (-not $declaresPermission) {
-            throw "The bridge permission dev.morphxposed.permission.BRIDGE is not declared"
+            throw "The bridge permission dev.morphexposed.permission.BRIDGE is not declared"
         }
 
         # protectionLevel is a bit field; signature == 0x2.
@@ -120,13 +120,13 @@ try {
             throw "The bridge permission is not signature-protected (expected protectionLevel=0x2)"
         }
 
-        $hasBridgeAction = $all -match 'dev\.morphxposed\.LSPOSED_PACKAGE_EVENT'
+        $hasBridgeAction = $all -match 'dev\.morphexposed\.LSPOSED_PACKAGE_EVENT'
         if (-not $hasBridgeAction) {
-            throw "The receiver does not filter for dev.morphxposed.LSPOSED_PACKAGE_EVENT"
+            throw "The receiver does not filter for dev.morphexposed.LSPOSED_PACKAGE_EVENT"
         }
 
         $receiverGuarded = $all -match
-            'PackageChangeReceiver[\s\S]{0,2000}?permission\(0x01010006\)="dev\.morphxposed\.permission\.BRIDGE"'
+            'PackageChangeReceiver[\s\S]{0,2000}?permission\(0x01010006\)="dev\.morphexposed\.permission\.BRIDGE"'
         if (-not $receiverGuarded) {
             throw "PackageChangeReceiver is not guarded by the bridge permission"
         }

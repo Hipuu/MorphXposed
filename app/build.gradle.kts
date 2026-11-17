@@ -10,11 +10,11 @@ plugins {
 }
 
 android {
-    namespace = "dev.morphxposed"
+    namespace = "dev.morphexposed"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "dev.morphxposed"
+        applicationId = "dev.morphexposed"
         minSdk = 26
         targetSdk = 37
         versionCode = 1

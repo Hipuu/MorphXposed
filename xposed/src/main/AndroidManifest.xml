@@ -2,11 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-      The bridge permission is declared by the MorphXposed app as signature-level. This module
+      The bridge permission is declared by the MorpheXposed app as signature-level. This module
       is signed with the same key, so it is granted it; that is what lets its broadcast reach
       the app's receiver and nothing else's.
     -->
-    <uses-permission android:name="dev.morphxposed.permission.BRIDGE" />
+    <uses-permission android:name="dev.morphexposed.permission.BRIDGE" />
 
     <!--
       LSPosed module metadata, read by LSPosed to list and describe the module.
@@ -25,7 +25,7 @@
             android:value="true" />
         <meta-data
             android:name="xposeddescription"
-            android:value="Forwards app install and update events to MorphXposed so automated patching reacts immediately. Does not modify any app." />
+            android:value="Forwards app install and update events to MorpheXposed so automated patching reacts immediately. Does not modify any app." />
         <meta-data
             android:name="xposedminversion"
             android:value="82" />

@@ -1,8 +1,8 @@
-# MorphXposed
+# MorpheXposed
 
 Automatic Morphe patching for Android, with optional LSPosed acceleration.
 
-MorphXposed detects supported apps on your device, fetches the official Morphe patch
+MorpheXposed detects supported apps on your device, fetches the official Morphe patch
 bundle (or any Morphe-compatible source), patches the app with **Morphe's own patching
 engine**, signs it, installs it, and repeats automatically whenever an app or a patch
 bundle changes.
@@ -47,7 +47,7 @@ and building it would mean shipping a fake API.
 * **There is no Xposed API for `.mpp` bundles.** Morphe is not an Xposed project — it is
   a ReVanced-lineage APK patcher, and its own manager uses no hooks at all.
 
-So MorphXposed does the patching the way Morphe does, and uses LSPosed only for the thing
+So MorpheXposed does the patching the way Morphe does, and uses LSPosed only for the thing
 the platform genuinely makes hard: **knowing that a package changed**.
 
 ### What the LSPosed module actually does
@@ -55,7 +55,7 @@ the platform genuinely makes hard: **knowing that a package changed**.
 Since Android 8.0, `PACKAGE_ADDED` / `PACKAGE_REPLACED` are not delivered to
 manifest-declared receivers of ordinary apps. Without privilege you can only poll.
 
-`MorphXposed Events` hooks `PackageManagerService` inside `system_server`, scoped to
+`MorpheXposed Events` hooks `PackageManagerService` inside `system_server`, scoped to
 `android` only, and forwards events to the app. It never modifies any app, carries no
 patcher, and is not required — the scheduled check is the guaranteed path.
 
@@ -84,7 +84,7 @@ patcher, and is not required — the scheduled check is the guaranteed path.
 | Strategy | Root | Preserves data | Notes |
 |---|---|---|---|
 | **Root mount** | required | **yes** | Patched APK is bind-mounted over the stock app at boot via a generated module. Stock signature and data survive. |
-| **Session installer** | no | **no** | The patched APK is signed with MorphXposed's key, so Android forces an uninstall of the stock app first, clearing its data. |
+| **Session installer** | no | **no** | The patched APK is signed with MorpheXposed's key, so Android forces an uninstall of the stock app first, clearing its data. |
 | **Shizuku** | no | depends | Uses Shizuku when running; falls back to the session installer. |
 
 ---
@@ -135,15 +135,15 @@ Generate a signing keystore once with `./scripts/gen-keystore.ps1`. The keystore
 ### Outputs
 
 ```
-dist/MorphXposed.apk           the main app
-dist/MorphXposed-Events.apk    optional LSPosed module
+dist/MorpheXposed.apk           the main app
+dist/MorpheXposed-Events.apk    optional LSPosed module
 ```
 
 ---
 
 ## Usage
 
-1. **Install** `MorphXposed.apk`.
+1. **Install** `MorpheXposed.apk`.
 2. **Home** → the official Morphe source is seeded; tap the sync icon to fetch the bundle.
 3. **Apps** → supported apps appear with a compatibility verdict. Enable **Auto** on the
    apps you want handled automatically.
@@ -153,8 +153,8 @@ dist/MorphXposed-Events.apk    optional LSPosed module
 
 ### Optional: real-time events
 
-1. Install `MorphXposed-Events.apk`.
-2. Open **LSPosed Manager** → enable **MorphXposed Events**.
+1. Install `MorpheXposed-Events.apk`.
+2. Open **LSPosed Manager** → enable **MorpheXposed Events**.
 3. Set its scope to **System Framework** (`android`) only.
 4. Reboot or restart the system framework.
 
@@ -200,13 +200,13 @@ testdata/ synthetic APK + bundle used by the integration tests
 
 ## Licence and attribution
 
-MorphXposed uses Morphe's official libraries:
+MorpheXposed uses Morphe's official libraries:
 
 * [`morphe-patcher`](https://github.com/MorpheApp/morphe-patcher) — GPL-3.0
 * [`morphe-library`](https://github.com/MorpheApp/morphe-library) — GPL-3.0
 
 Both are GPL-3.0, so this project is distributed under **GPL-3.0** as well.
 
-MorphXposed is an independent project. It is **not** affiliated with or endorsed by the
+MorpheXposed is an independent project. It is **not** affiliated with or endorsed by the
 Morphe team, and it does not use Morphe's name or logos as its own branding, per the
 Morphe licence's Section 7 branding conditions.

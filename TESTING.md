@@ -436,7 +436,7 @@ only what the platform will answer:
 
 * whether an LSPosed manager is installed (`org.lsposed.manager`, plus the LSPatch and
   alternate manager ids), with its version;
-* whether the MorphXposed Events APK is installed, including the `.debug` variant — missing that
+* whether the MorpheXposed Events APK is installed, including the `.debug` variant — missing that
   would tell a developer their own installed module is absent;
 * whether the bridge has **delivered an event since launch**, which is the only trustworthy proof
   the module is active.
@@ -694,14 +694,14 @@ now explicit and enforced by sanitizing everything outside `[A-Za-z0-9_]`.
 `LsposedBridgeContractTest` exists because the bridge was **silently broken** and nothing
 caught it until it was traced by hand. Three independent mismatches each dropped every event:
 
-1. the module sent `dev.morphxposed.LSPOSED_PACKAGE_EVENT`, which the receiver did not filter for;
+1. the module sent `dev.morphexposed.LSPOSED_PACKAGE_EVENT`, which the receiver did not filter for;
 2. the receiver demanded a `package:` data URI, and the module's intent carries none, so it
    returned before doing anything;
 3. the extra was named `event` on one side and `action` on the other.
 
 Fixed by giving the receiver an explicit bridge route keyed on the action, reading the package
 from its extra, and pinning both sides to one documented contract. The bridge is now also
-guarded by a **signature-level permission** (`dev.morphxposed.permission.BRIDGE`), so only an
+guarded by a **signature-level permission** (`dev.morphexposed.permission.BRIDGE`), so only an
 APK signed with this app's key — in practice only the events module — can drive it. Verified in
 the built manifests: the app declares the permission at `protectionLevel=signature` and the
 module requests it.
@@ -846,14 +846,14 @@ BUILD SUCCESSFUL
 
 | Artifact | Size | Signature |
 |---|---:|---|
-| `MorphXposed.apk` | 26.6 MB | v2, RSA-4096, `CN=MorphXposed` |
-| `MorphXposed-Events.apk` | 0.7 MB | v2, RSA-4096, `CN=MorphXposed` |
+| `MorpheXposed.apk` | 26.6 MB | v2, RSA-4096, `CN=MorpheXposed` |
+| `MorpheXposed-Events.apk` | 0.7 MB | v2, RSA-4096, `CN=MorpheXposed` |
 
 ```
-$ apksigner verify --print-certs dist/MorphXposed.apk
+$ apksigner verify --print-certs dist/MorpheXposed.apk
 Verifies
 Verified using v2 scheme (APK Signature Scheme v2): true
-V2 Signer: certificate DN: CN=MorphXposed, OU=Release, O=MorphXposed, ...
+V2 Signer: certificate DN: CN=MorpheXposed, OU=Release, O=MorpheXposed, ...
 V2 Signer: key size (bits): 4096
 ```
 
@@ -869,7 +869,7 @@ $ ./gradlew :xposed:dependencies --configuration releaseRuntimeClasspath
 
 The API jar is absent from the runtime classpath (it is `compileOnly`), and present only at
 compile time. The module APK also ships `assets/xposed_init` declaring
-`dev.morphxposed.events.EventsModule`, and manifest metadata
+`dev.morphexposed.events.EventsModule`, and manifest metadata
 `xposedmodule=true`, `xposedminversion=82`, scope `android`.
 
 ---
@@ -880,27 +880,27 @@ Every release artefact is checked before it is considered done, because these ca
 failures that otherwise only appear as a crash on launch.
 
 ```
-$ apksigner verify dist/MorphXposed.apk ; echo $?
+$ apksigner verify dist/MorpheXposed.apk ; echo $?
 0                      # exit 0 == verified
 
-$ apksigner verify --verbose dist/MorphXposed.apk
+$ apksigner verify --verbose dist/MorpheXposed.apk
 Verifies
 Verified using v2 scheme (APK Signature Scheme v2): true
 ```
 
 ```
-$ ./scripts/verify-apk.ps1 -Apk dist/MorphXposed.apk
-Package: dev.morphxposed
+$ ./scripts/verify-apk.ps1 -Apk dist/MorpheXposed.apk
+Package: dev.morphexposed
 Declared classes: 4, dex classes: 51728
 OK: every manifest component resolves to a class in the dex
 
-$ ./scripts/verify-apk.ps1 -Apk dist/MorphXposed-Events.apk
-Package: dev.morphxposed.events
+$ ./scripts/verify-apk.ps1 -Apk dist/MorpheXposed-Events.apk
+Package: dev.morphexposed.events
 Declared classes: 1, dex classes: 1127
 OK: every manifest component resolves to a class in the dex
 ```
 
-The components checked are `MorphXposedApp`, `MainActivity`,
+The components checked are `MorpheXposedApp`, `MainActivity`,
 `PackageChangeReceiver`, `InstallResultReceiver` (main app) and `ModuleInfoActivity`
 (events module). A renamed or moved class with a stale manifest entry would fail here
 rather than at runtime.

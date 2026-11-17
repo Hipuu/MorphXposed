@@ -31,28 +31,28 @@
     <!--
       Signature-level permission guarding the LSPosed event bridge. Declaring it here means
       only apps signed with this app's key can hold it, which in practice is only the
-      MorphXposed Events module.
+      MorpheXposed Events module.
     -->
     <permission
-        android:name="dev.morphxposed.permission.BRIDGE"
+        android:name="dev.morphexposed.permission.BRIDGE"
         android:protectionLevel="signature" />
 
-    <uses-permission android:name="dev.morphxposed.permission.BRIDGE" />
+    <uses-permission android:name="dev.morphexposed.permission.BRIDGE" />
 
     <application
-        android:name=".MorphXposedApp"
+        android:name=".MorpheXposedApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.MorphXposed">
+        android:theme="@style/Theme.MorpheXposed">
 
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.MorphXposed">
+            android:theme="@style/Theme.MorpheXposed">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -65,13 +65,13 @@
 
           The platform does not deliver PACKAGE_* broadcasts to manifest receivers of ordinary
           apps on Android 8.0+, so the reliable real-time source is the optional LSPosed module.
-          It sends dev.morphxposed.LSPOSED_PACKAGE_EVENT, guarded by a signature permission.
+          It sends dev.morphexposed.LSPOSED_PACKAGE_EVENT, guarded by a signature permission.
           The WorkManager periodic check remains the guaranteed fallback for both.
         -->
         <receiver
             android:name=".automation.PackageChangeReceiver"
             android:exported="true"
-            android:permission="dev.morphxposed.permission.BRIDGE">
+            android:permission="dev.morphexposed.permission.BRIDGE">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_ADDED" />
                 <action android:name="android.intent.action.PACKAGE_REPLACED" />
@@ -79,7 +79,7 @@
                 <data android:scheme="package" />
             </intent-filter>
             <intent-filter>
-                <action android:name="dev.morphxposed.LSPOSED_PACKAGE_EVENT" />
+                <action android:name="dev.morphexposed.LSPOSED_PACKAGE_EVENT" />
             </intent-filter>
         </receiver>
 
@@ -88,7 +88,7 @@
             android:name=".installer.InstallResultReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="dev.morphxposed.INSTALL_RESULT" />
+                <action android:name="dev.morphexposed.INSTALL_RESULT" />
             </intent-filter>
         </receiver>
 

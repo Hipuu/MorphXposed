@@ -51,7 +51,7 @@ try {
                 $failed += [int]$suite.failures + [int]$suite.errors
                 $skipped += [int]$suite.skipped
                 if ([int]$suite.skipped -gt 0) {
-                    Write-Host ("  skipped {0,-3} in {1}" -f $suite.skipped, ($suite.name -replace 'dev\.morphxposed\.', '')) `
+                    Write-Host ("  skipped {0,-3} in {1}" -f $suite.skipped, ($suite.name -replace 'dev\.morphexposed\.', '')) `
                         -ForegroundColor Yellow
                 }
             }

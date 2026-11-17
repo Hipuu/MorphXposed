@@ -71,7 +71,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MorphXposed"
+rootProject.name = "MorpheXposed"
 
 include(":app")
 

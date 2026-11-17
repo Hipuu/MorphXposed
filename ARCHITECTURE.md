@@ -1,4 +1,4 @@
-# MorphXposed — Architecture
+# MorpheXposed — Architecture
 
 This document records what the Morphe ecosystem actually does, why the original
 brief's premise needed correcting, and the architecture this project implements
@@ -82,13 +82,13 @@ use `JobScheduler`/`WorkManager` heuristics. An LSPosed module hooked into
 `system_server`'s `PackageManagerService` sees these events authoritatively and
 in real time.
 
-So MorphXposed ships **two artifacts**, connected by a signature-guarded broadcast
-(`dev.morphxposed.LSPOSED_PACKAGE_EVENT`, permission `dev.morphxposed.permission.BRIDGE`):
+So MorpheXposed ships **two artifacts**, connected by a signature-guarded broadcast
+(`dev.morphexposed.LSPOSED_PACKAGE_EVENT`, permission `dev.morphexposed.permission.BRIDGE`):
 
 | Artifact | Purpose |
 |---|---|
-| **MorphXposed** (main app) | Detect, fetch, verify, patch, install, roll back |
-| **MorphXposed Events** (LSPosed module) | Optional accelerator: forwards real-time package events from `system_server` to the main app |
+| **MorpheXposed** (main app) | Detect, fetch, verify, patch, install, roll back |
+| **MorpheXposed Events** (LSPosed module) | Optional accelerator: forwards real-time package events from `system_server` to the main app |
 
 The main app is fully functional **without** the module. The module is a
 performance/latency optimisation, never a correctness dependency, and never

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Executes the shell that MorphXposed writes into /data/adb/modules.
+# Executes the shell that MorpheXposed writes into /data/adb/modules.
 #
 # The scripts cannot be mounted on this machine, but they can be *parsed and run* with the
 # Android commands stubbed out. That catches the failures that matter and cannot be seen by

@@ -80,7 +80,7 @@ Totals are in [TESTING.md](TESTING.md).
 | Automation | `AutomationScreen` | `ScreenCompositionTest` |
 | Logs | `LogsScreen` | `ScreenCompositionTest` |
 | Settings (repositories, intervals, backups, **permissions**) | `SettingsScreen` | `ScreenCompositionTest`, `PermissionStatusTest` (7) |
-| Material 3 | `MorphXposedTheme`, `MaterialTheme` throughout | `ScreenCompositionTest` (14, renders every screen) |
+| Material 3 | `MorpheXposedTheme`, `MaterialTheme` throughout | `ScreenCompositionTest` (14, renders every screen) |
 | Dark mode | `darkTheme` follows the system setting | `ScreenCompositionTest` |
 | Clear status indicators | `StatusChip` used for patch state, LSPosed state, permissions | `ScreenCompositionTest` |
 

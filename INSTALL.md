@@ -1,9 +1,16 @@
-# Installation and Configuration
+# Installation
+
+> **Note on the name.** This project was originally called *MorphXposed* and is now
+> **MorpheXposed**. The application id changed from `dev.morphxposed` to `dev.morphexposed`, so a
+> build from before the rename must be uninstalled first — Android treats the two ids as different
+> apps. The release **signing key is unchanged**, so the app keeps its update identity once
+> reinstalled. The keystore alias and passwords still read `morphxposed` for that reason; they
+> belong to the key, not the project. and Configuration
 
 ## 1. Install the app
 
 ```bash
-adb install -r dist/MorphXposed.apk
+adb install -r dist/MorpheXposed.apk
 ```
 
 Minimum Android 8.0 (API 26). No root is required to use the session installer.
@@ -26,7 +33,7 @@ installed versions. It does not request broad package-visibility beyond what pat
 
 ## 2. First run
 
-1. Open **MorphXposed**.
+1. Open **MorpheXposed**.
 2. The **official Morphe source** (`MorpheApp/morphe-patches`) is created automatically.
 3. Tap the **sync icon** on Home, or open **Patches** and refresh, to download the bundle
    (~16 MB). Its SHA-256 is checked against the release's published digest.
@@ -50,7 +57,7 @@ module, so the app keeps its stock signature and its data.
 
 * Requires Magisk, KernelSU, or APatch.
 * Root is requested only when you actually patch.
-* The module lives at `/data/adb/modules/morphxposed_<package>/` and contains
+* The module lives at `/data/adb/modules/morphexposed_<package>/` and contains
   `module.prop`, `post-fs-data.sh`, `service.sh`, and the patched APK.
 * `service.sh` refuses to mount if the stock app's version no longer matches the version
   the patch was built for — mounting a mismatched APK would crash the app.
@@ -59,7 +66,7 @@ module, so the app keeps its stock signature and its data.
 
 Uses the standard Android package installer.
 
-> **Data loss warning.** The patched APK is signed with MorphXposed's own key, which
+> **Data loss warning.** The patched APK is signed with MorpheXposed's own key, which
 > cannot match Google's signature on the stock app. Android therefore requires the stock
 > app to be uninstalled before the patched one can be installed, and that clears its data.
 > Use root mount if you want to keep app data.
@@ -106,10 +113,10 @@ It does **not** patch anything and does **not** modify any app.
 
 1. Install the module:
    ```bash
-   adb install -r dist/MorphXposed-Events.apk
+   adb install -r dist/MorpheXposed-Events.apk
    ```
 2. Open **LSPosed Manager**.
-3. **Modules** → enable **MorphXposed Events**.
+3. **Modules** → enable **MorpheXposed Events**.
 4. Set its scope to **System Framework** (`android`) **only**. Do not add other apps.
 5. Reboot, or restart the system framework.
 
@@ -119,11 +126,11 @@ It does **not** patch anything and does **not** modify any app.
 adb logcat | grep MorphXEvents
 ```
 
-You should see `MorphXposed events module active in system_server`, then
+You should see `MorpheXposed events module active in system_server`, then
 `Forwarded <event> for <package>` lines as apps change.
 
 The bridge between the two APKs is a broadcast guarded by the signature-level
-permission `dev.morphxposed.permission.BRIDGE`. Both APKs are signed with the same key,
+permission `dev.morphexposed.permission.BRIDGE`. Both APKs are signed with the same key,
 which is what grants the module permission to reach the main app, and what stops any other
 app from driving it. If the module and the app were signed with different keys, the bridge
 would be silently refused; install both from the same build.
@@ -169,7 +176,7 @@ when the release provides a digest and is structurally validated regardless.
 ### Reset
 
 Clearing app data removes settings, cached bundles, backups, and logs. Patched apps are
-unaffected. For root-mount installs, delete `/data/adb/modules/morphxposed_*` and reboot.
+unaffected. For root-mount installs, delete `/data/adb/modules/morphexposed_*` and reboot.
 
 ---
 
@@ -177,7 +184,7 @@ unaffected. For root-mount installs, delete `/data/adb/modules/morphxposed_*` an
 
 1. Uninstall patched apps, or for root-mount installs remove the module directory and
    reboot so the stock APK is used again.
-2. Disable **MorphXposed Events** in LSPosed Manager, then uninstall both APKs.
+2. Disable **MorpheXposed Events** in LSPosed Manager, then uninstall both APKs.
 
 Rollback: backups are at `files/backups/<package>/` inside the app's private storage. Use
 **Apps → app → details** to see the recorded version before uninstalling anything.
