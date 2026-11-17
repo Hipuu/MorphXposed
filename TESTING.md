@@ -323,6 +323,30 @@ it is more honest than inventing a use for it.
 `RunRetentionTest` pins retention, since "the method exists" was precisely the state that looked
 healthy before.
 
+### The guards are tested too
+
+Every guard here exists because a check once reported success without checking. A guard script that
+cannot fail repeats that at one level up, so `scripts/check-guards.ps1` feeds each guard a
+deliberately broken copy of the script it inspects and asserts it is rejected:
+
+* `check-zero-tests.ps1` is given a `run-tests.ps1` with the zero-test guard stripped out;
+* `check-empty-release.ps1` is given a `build-release.ps1` that warns instead of throwing.
+
+Both rejections name the reason, so a guard failing for the wrong cause is visible rather than
+counted as success. The script also refuses to run a control it could not actually break: if the
+strip pattern fails, it reports an invalid control instead of a pass.
+
+`check-guards.ps1` runs from both `run-tests.ps1` and `build-release.ps1`, so the release and test
+paths each verify that their own verifiers discriminate.
+
+The pipeline now runs three layers: the artifacts are verified, the verifier is shown to reject
+four kinds of broken APK, and the guards that check those are shown to reject their broken subjects.
+
+Worth recording: while confirming this, a run appeared to fail with exit 1. It had not — a
+`Select-String` pipeline was consuming the output of the native child and the shell reported the
+pipeline's status. Re-running with the output captured to a file gave 296 tests and exit 0. A
+nonzero exit is evidence, not proof, and it needs the same suspicion as a zero.
+
 ### Zero tests reported as a pass
 
 The mirror of the previous defect. `run-tests.ps1` sums whatever JUnit XML it finds under the

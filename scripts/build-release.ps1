@@ -80,6 +80,13 @@ MORPHX_KEYSTORE_PATH at one. See RELEASING.md for the CI secrets.
         Write-Warning "Build tools not found; skipping signature and component verification."
     }
 
+    # Prove the guards themselves can fail, before relying on them.
+    $guards = Join-Path $PSScriptRoot 'check-guards.ps1'
+    if (Test-Path $guards) {
+        & $guards | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "A guard script failed its own negative control" }
+    }
+
     # A release build that produces no release must fail, not warn. Checked here as well as in
     # the negative-control script so the property is enforced on every run.
     & (Join-Path $PSScriptRoot 'check-empty-release.ps1') | Out-Host

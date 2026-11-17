@@ -102,6 +102,14 @@ still the right task names, and that the JUnit XML reports are enabled.
         if ($LASTEXITCODE -ne 0) { throw "The zero-test guard is missing or ineffective" }
     }
 
+    # Prove the guards themselves can fail. A guard that cannot reject anything is the same defect
+    # it was written to catch, one level up.
+    $guards = Join-Path $PSScriptRoot 'check-guards.ps1'
+    if (Test-Path $guards) {
+        & $guards | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "A guard script failed its own negative control" }
+    }
+
     Write-Host "======================================================"
 } finally {
     Pop-Location
