@@ -176,6 +176,26 @@ class MainViewModel(private val app: MorpheXposedApp) : ViewModel() {
         java.io.File(path).takeIf { it.isFile && it.length() > 0 }
     }.getOrNull()
 
+    /**
+     * Asks the system for a prerequisite the app can obtain itself.
+     *
+     * The app declared POST_NOTIFICATIONS and REQUEST_INSTALL_PACKAGES but never requested either;
+     * the Settings card only told the user to go and grant them by hand. An app should ask.
+     *
+     * Returns the item to act on, or null when nothing can be requested programmatically. The
+     * Activity performs the request because both cases need one.
+     */
+    fun permissionToRequest(): dev.morphexposed.automation.PermissionStatus.Item? =
+        _permissions.value.firstOrNull {
+            !it.granted && it.request != null && it.request !=
+                dev.morphexposed.automation.PermissionStatus.PermissionRequest.NONE
+        }
+
+    /** Re-reads prerequisites after the user answers a prompt. */
+    fun onPermissionResult() {
+        refreshLsposed()
+    }
+
     /** Mirrors settings.lsposedBridgeEnabled so the toggle can render its state. */
     val bridgeEnabled: StateFlow<Boolean> = settings.lsposedBridgeEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)

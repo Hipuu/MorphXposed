@@ -43,6 +43,40 @@ class PatchOnDeviceTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         app = context.applicationContext as MorpheXposedApp
+        registerSeededBundle()
+    }
+
+    /**
+     * Points the official source at the bundle pushed by scripts/ondevice-prepare.sh.
+     *
+     * Uses [dev.morphexposed.data.db.PatchSourceDao.markDownloaded] — the same call the real
+     * downloader makes — rather than writing SQL, because a production ROM has no `sqlite3` binary
+     * and the app owns its database anyway. This is setup, not a substitute for product behaviour:
+     * the bundle file itself was downloaded and verified out of band.
+     */
+    private fun registerSeededBundle() = runBlocking {
+        val file = File(context.filesDir, "bundles/patches-official.mpp")
+        if (!file.isFile) return@runBlocking
+
+        val sha = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(file.readBytes())
+            .joinToString("") { "%02x".format(it) }
+        val source = app.database.patchSourceDao().enabled().firstOrNull { it.isOfficial }
+            ?: return@runBlocking
+
+        if (source.cachedFileName == "patches-official.mpp" && source.cachedSize == file.length()) {
+            return@runBlocking // already registered by a previous run
+        }
+        app.database.patchSourceDao().markDownloaded(
+            id = source.id,
+            checkedAt = System.currentTimeMillis(),
+            tag = "patches-official",
+            fileName = "patches-official.mpp",
+            sha256 = sha,
+            size = file.length(),
+            requiredPatcherVersion = null
+        )
+        println("Registered ${file.name} (${file.length()} bytes) for source ${source.id}")
     }
 
     private fun bundle(): File? =

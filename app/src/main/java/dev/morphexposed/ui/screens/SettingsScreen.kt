@@ -51,6 +51,7 @@ fun SettingsScreen(
     lsposedActive: Boolean,
     onRefreshLsposed: () -> Unit,
     permissions: List<dev.morphexposed.automation.PermissionStatus.Item>,
+    onGrantPermission: () -> Unit,
     bridgeEnabled: Boolean,
     onSetBridgeEnabled: (Boolean) -> Unit
 ) {
@@ -268,6 +269,12 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                    }
+                    // Offers to obtain what the app can obtain itself. Without this the card only
+                    // described a remedy the user had to perform by hand in system settings.
+                    if (permissions.any { !it.granted && it.request != null && it.request !=
+                            dev.morphexposed.automation.PermissionStatus.PermissionRequest.NONE }) {
+                        TextButton(onClick = onGrantPermission) { Text("Grant permission") }
                     }
                     TextButton(onClick = onRefreshLsposed) { Text("Re-check") }
                 }

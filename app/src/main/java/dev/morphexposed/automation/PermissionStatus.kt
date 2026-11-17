@@ -22,8 +22,28 @@ class PermissionStatus(private val context: Context) {
         /** What the user has to do, or null when nothing is needed. */
         val remedy: String?,
         /** True when the app is meaningfully degraded without it. */
-        val required: Boolean
+        val required: Boolean,
+        /**
+         * How the app can obtain this itself, or null when only the user can act.
+         *
+         * Added because the app declared the permissions but never requested them: the card
+         * described a remedy the user had to go and perform in system settings, with no button and
+         * no prompt. An app that needs a permission should ask for it.
+         */
+        val request: PermissionRequest? = null
     )
+
+    /** What the app can do to obtain a prerequisite. */
+    enum class PermissionRequest {
+        /** A runtime permission dialog (`POST_NOTIFICATIONS`). */
+        RUNTIME_DIALOG,
+
+        /** A system settings screen (`REQUEST_INSTALL_PACKAGES` has no dialog). */
+        SETTINGS_SCREEN,
+
+        /** Only the user can act: install LSPosed, or configure a root manager. */
+        NONE
+    }
 
     /** Every prerequisite, in the order a user would hit them. */
     fun read(): List<Item> = listOf(
@@ -44,7 +64,8 @@ class PermissionStatus(private val context: Context) {
                 "to storage but never reaches the device.",
             remedy = if (granted) null else
                 "Grant \"Install unknown apps\" for MorpheXposed in system settings.",
-            required = true
+            required = true,
+            request = PermissionRequest.SETTINGS_SCREEN
         )
     }
 
@@ -65,7 +86,8 @@ class PermissionStatus(private val context: Context) {
                 "your attention.",
             remedy = if (granted) null else "Allow notifications for MorpheXposed.",
             // Automation still works without them; the user simply is not told.
-            required = false
+            required = false,
+            request = PermissionRequest.RUNTIME_DIALOG
         )
     }
 

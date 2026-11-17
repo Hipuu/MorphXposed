@@ -384,6 +384,7 @@ class ScreenCompositionTest {
                     lsposedActive = lsposedOn,
                     onRefreshLsposed = {},
                     permissions = permissions,
+                    onGrantPermission = {},
                     bridgeEnabled = true,
                     onSetBridgeEnabled = {}
                 )
@@ -428,6 +429,7 @@ class ScreenCompositionTest {
                     lsposedActive = lsposedOn,
                     onRefreshLsposed = {},
                     permissions = permissions,
+                    onGrantPermission = {},
                     bridgeEnabled = true,
                     onSetBridgeEnabled = {}
                 )

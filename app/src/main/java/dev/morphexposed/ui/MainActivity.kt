@@ -1,6 +1,12 @@
 package dev.morphexposed.ui
 
 import android.os.Bundle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -30,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -88,10 +95,46 @@ private fun MorpheXposedApp(app: MorpheXposedApp, vm: MainViewModel) {
 
 
     val snackbar = remember { SnackbarHostState() }
+    // Declared before the permission block and the sharing block: both need the Activity context.
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // Permission handling. The app declared POST_NOTIFICATIONS and REQUEST_INSTALL_PACKAGES but
+    // never asked for either, so the Settings card only instructed the user to grant them by hand.
+    // POST_NOTIFICATIONS gets a runtime dialog; "install unknown apps" has no dialog on Android and
+    // must open its settings screen.
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { vm.onPermissionResult() }
+
+    val onGrantPermission: () -> Unit = {
+        val item = vm.permissionToRequest()
+        when (item?.request) {
+            dev.morphexposed.automation.PermissionStatus.PermissionRequest.RUNTIME_DIALOG -> {
+                val permission = when {
+                    item.name.contains("Notification", ignoreCase = true) ->
+                        Manifest.permission.POST_NOTIFICATIONS
+                    else -> null
+                }
+                if (permission != null) permissionLauncher.launch(permission)
+            }
+
+            dev.morphexposed.automation.PermissionStatus.PermissionRequest.SETTINGS_SCREEN -> {
+                // REQUEST_INSTALL_PACKAGES is granted from a settings screen, not a dialog.
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:${context.packageName}")
+                )
+                runCatching { context.startActivity(intent) }
+                    .onFailure { scope.launch { snackbar.showSnackbar("Could not open the install-permission screen.") } }
+            }
+
+            else -> scope.launch { snackbar.showSnackbar("This one has to be set up outside the app.") }
+        }
+    }
+
     // Sharing needs the Activity context and a chooser, so it is wired here rather than in the
     // ViewModel; the file itself comes from the recorded run.
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val context = LocalContext.current
     val onShareApk: (String) -> Unit = { packageName ->
         scope.launch {
             val apk = vm.shareableApk(packageName)
@@ -196,6 +239,7 @@ private fun MorpheXposedApp(app: MorpheXposedApp, vm: MainViewModel) {
                         lsposedActive = lsposedActive,
                         onRefreshLsposed = vm::refreshLsposed,
                         permissions = permissions,
+                        onGrantPermission = onGrantPermission,
                         bridgeEnabled = bridgeEnabled,
                         onSetBridgeEnabled = vm::setBridgeEnabled
                     )
