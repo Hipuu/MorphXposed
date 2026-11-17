@@ -54,7 +54,8 @@ fun AppsScreen(
     onRescan: () -> Unit,
     onPatch: (String) -> Unit,
     onToggleAutoPatch: (String, Boolean) -> Unit,
-    onToggleHidden: (String, Boolean) -> Unit
+    onToggleHidden: (String, Boolean) -> Unit,
+    onRestore: ((String) -> Unit)? = null
 ) {
     var filter by remember { mutableStateOf(AppFilter.ALL) }
     var detail by remember { mutableStateOf<AppUiModel?>(null) }
@@ -125,7 +126,8 @@ fun AppsScreen(
                 detail = null
             },
             onToggleAutoPatch = { onToggleAutoPatch(model.app.packageName, it) },
-            onToggleHidden = { onToggleHidden(model.app.packageName, it) }
+            onToggleHidden = { onToggleHidden(model.app.packageName, it) },
+            onRestore = onRestore?.let { restore -> { restore(model.app.packageName) } }
         )
     }
 }
@@ -208,7 +210,8 @@ private fun AppDetailDialog(
     onDismiss: () -> Unit,
     onPatch: () -> Unit,
     onToggleAutoPatch: (Boolean) -> Unit,
-    onToggleHidden: (Boolean) -> Unit
+    onToggleHidden: (Boolean) -> Unit,
+    onRestore: (() -> Unit)? = null
 ) {
     val report = model.report
     AlertDialog(
@@ -246,6 +249,9 @@ private fun AppDetailDialog(
         },
         dismissButton = {
             Row {
+                if (onRestore != null && model.app.lastPatchedAt > 0) {
+                    TextButton(onClick = onRestore) { Text("Restore") }
+                }
                 TextButton(onClick = { onToggleHidden(!model.app.hidden) }) {
                     Text(if (model.app.hidden) "Unhide" else "Hide")
                 }

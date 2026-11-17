@@ -127,9 +127,15 @@ class PatchEngine {
 
             send(PatchEvent.Stage(StageName.PATCHING, "${selected.size} patches"))
 
+            // Keep only the ABIs this device can run. The patcher treats an empty set as
+            // "keep everything", so an unmappable device falls back to the safe default.
+            val keepArchitectures = ArchitectureSelection.keepFor()
+            log("Keeping native ABIs: ${ArchitectureSelection.describe(keepArchitectures)}")
+
             val config = PatcherConfig(
                 apkFile = inputApk,
                 temporaryFilesPath = tempDir,
+                keepArchitectures = keepArchitectures,
                 fileWorkspacePath = workspaceDir,
                 targetPatcherVersion = targetPatcherVersion,
                 validate = false,

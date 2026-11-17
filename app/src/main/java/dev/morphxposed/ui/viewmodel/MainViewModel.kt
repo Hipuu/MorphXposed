@@ -19,6 +19,7 @@ import dev.morphxposed.domain.apps.CompatibilityResolver
 import dev.morphxposed.domain.patch.PatchEvent
 import dev.morphxposed.domain.source.BundleInfo
 import dev.morphxposed.domain.source.RefreshResult
+import org.koin.java.KoinJavaComponent.getKoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -73,6 +74,33 @@ class MainViewModel(private val app: MorphXposedApp) : ViewModel() {
     /** Re-reads what the platform will report about LSPosed. */
     fun refreshLsposed() {
         _lsposed.value = lsposedStatusReader.read()
+    }
+
+    /** Rollback support, reachable from the app detail dialog. */
+    private val rollbackService by lazy { getKoin().get<dev.morphxposed.domain.backup.RollbackService>() }
+
+    /** Describes what a rollback for [packageName] would do, or null when none is possible. */
+    suspend fun rollbackAvailability(packageName: String): dev.morphxposed.domain.backup.RollbackService.Availability? =
+        runCatching {
+            val row = db.supportedAppDao().byPackage(packageName) ?: return@runCatching null
+            rollbackService.availability(packageName, row.mounted)
+        }.getOrNull()
+
+    /** Restores [packageName] from its saved original APK. */
+    fun rollback(packageName: String) {
+        viewModelScope.launch {
+            _busy.value = "Restoring $packageName…"
+            val row = db.supportedAppDao().byPackage(packageName)
+            val result = rollbackService.rollback(packageName, row?.mounted ?: false)
+            _message.value = when (result) {
+                is dev.morphxposed.domain.backup.RollbackService.Result.Restored ->
+                    "Restored $packageName to ${result.versionName}."
+                is dev.morphxposed.domain.backup.RollbackService.Result.Failed ->
+                    result.message
+            }
+            _busy.value = null
+            reloadApps()
+        }
     }
 
     private val _busy = MutableStateFlow<String?>(null)

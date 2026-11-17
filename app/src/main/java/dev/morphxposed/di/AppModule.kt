@@ -44,6 +44,7 @@ val appModule: Module = module {
     single { PatchSourceRepository(get(), get(), get()) }
 
     single { PatchEngine() }
+    single { dev.morphxposed.domain.backup.RollbackService(androidContext(), get(), get(), get()) }
     single { SessionInstaller(androidContext()) }
     single { RootMountInstaller(androidContext()) }
 

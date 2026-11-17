@@ -123,7 +123,8 @@ private fun MorphXposedApp(app: MorphXposedApp, vm: MainViewModel) {
                         onRescan = vm::refreshApps,
                         onPatch = { vm.patchApp(it) },
                         onToggleAutoPatch = vm::setAutoPatch,
-                        onToggleHidden = vm::setHidden
+                        onToggleHidden = vm::setHidden,
+                        onRestore = vm::rollback
                     )
 
                     Tab.PATCHES -> PatchesScreen(

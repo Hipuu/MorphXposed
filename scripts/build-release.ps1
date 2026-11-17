@@ -65,10 +65,10 @@ try {
         $wsl = Get-Command wsl -ErrorAction SilentlyContinue
         if ($wsl) {
             $linuxRoot = '/mnt/' + ($root.Substring(0, 1).ToLower()) + ($root.Substring(2) -replace '\\', '/')
-            $args = "cd $linuxRoot && sed -i 's/\r`$//' scripts/verify-root-scripts.sh && " +
+            $shellCmd = "cd $linuxRoot && sed -i 's/\r`$//' scripts/verify-root-scripts.sh && " +
                 "bash scripts/verify-root-scripts.sh app/build/root-scripts/module.prop " +
                 "app/build/root-scripts/post-fs-data.sh app/build/root-scripts/service.sh"
-            & wsl -d kiri -- bash -lc $args
+            & wsl -d kiri -- bash -lc $shellCmd
             if ($LASTEXITCODE -ne 0) { throw "The generated root-mount scripts failed shell verification" }
         } else {
             Write-Warning "WSL not available; skipping execution of the root-mount scripts."

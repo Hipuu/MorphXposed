@@ -122,8 +122,10 @@ BUILD SUCCESSFUL
 | `PackageNamesTest` (module) | 7 | 0 | JVM (module) |
 | `DiscoverThenPatchEndToEndTest` | 5 | 0 | Robolectric + ShadowPackageManager |
 | `LsposedStatusTest` | 9 | 0 | Robolectric + ShadowPackageManager |
+| `ArchitectureSelectionTest` | 8 | 0 | JVM (pure functions) |
+| `RollbackServiceTest` | 8 | 0 | Robolectric + Room |
 | Root-mount shell execution | 14 checks | 0 | **real bash via WSL** |
-| **Total** | **199** | **0** (0 skipped) | |
+| **Total** | **215** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -185,6 +187,45 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### Auditing the brief against the code found two missing features
+
+Rather than adding more tests, this round checked every stated requirement against what was
+actually implemented. Two were absent, and both were silent because nothing failed:
+
+**1. ABI handling.** The brief requires "Handle Android version and ABI differences". Morphe's
+`PatcherConfig` takes a `keepArchitectures` set and drops native libraries for architectures
+outside it — the app never set it, so it always fell back to "keep everything". `ArchitectureSelection`
+now maps `Build.SUPPORTED_ABIS` to the patcher's `CpuArchitecture`.
+
+The safe direction matters here: an ABI the device cannot run wastes space, but dropping one it
+*can* run breaks the app. So unknown names map to `null` rather than a guess, and if nothing maps
+the set is left **empty**, which the patcher reads as "keep everything". Getting it wrong in the
+permissive direction is a wasted megabyte; in the restrictive direction it is a crash.
+
+**2. Rollback.** The brief requires "rollback and recovery". Backups were being written, the
+schema documented them as "used for rollback", and the settings described them as "required for
+rollback" — but nothing could restore them. It was a claim, not a feature. `RollbackService` adds
+the missing half, and it distinguishes the two cases honestly:
+
+* a **root-mounted** app was never replaced, so removing the module is lossless and app data is
+  kept;
+* a **session-installed** app was replaced, so restoring the original changes the signature back
+  and Android clears its data. That is unavoidable, and `availability()` reports
+  `losesAppData = true` so the UI can warn before the user commits.
+
+The Apps screen now offers **Restore** for any app with a patch record.
+
+### A build hang worth recording
+
+The release script then appeared to hang for over 30 minutes. The cause was a self-inflicted
+PowerShell trap: the script assigned to `$args`, which is an **automatic variable**. That
+silently corrupted the argument passed to `wsl`, leaving it waiting indefinitely. Renaming it to
+`$shellCmd` brought the pipeline back to 1.8 minutes.
+
+Worth recording because the failure mode was a hang with no error: nothing was reported, the job
+simply never finished, and the only way to see it was to notice that no artifact had been
+produced.
 
 ### LSPosed state is reported honestly
 
