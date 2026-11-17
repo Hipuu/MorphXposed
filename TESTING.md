@@ -323,6 +323,40 @@ it is more honest than inventing a use for it.
 `RunRetentionTest` pins retention, since "the method exists" was precisely the state that looked
 healthy before.
 
+### Proving the verifier can fail
+
+`verify-apk.ps1` decides whether an APK is fit to ship. It had never been shown to *reject*
+anything, and this project has already shipped one check that could not fail: the rename guard used
+`aapt2 dump strings`, which reads the resource table only, so it passed no matter what the compiled
+code contained.
+
+`scripts/verify-apk-negative.ps1` builds deliberately broken APKs and asserts each is rejected:
+
+* a path that does not exist;
+* a file that is not a zip;
+* a manifest component with a **relative** name (`.MissingActivity`) and no matching class;
+* a manifest component with a **qualified** name and no matching class.
+
+The relative-name control found a real blind spot. The class collector required
+`$value.StartsWith("$package.")`, so a component written as `.Foo` — legal, and what a hand-written
+manifest often uses — was skipped entirely. The check then reported success having verified nothing
+about it. Names are now resolved against the package before the prefix test.
+
+The controls run inside `build-release.ps1`, so a release cannot be produced unless the verifier
+has been shown to discriminate.
+
+### A stale exit code that would have broken CI
+
+`run-tests.ps1 -WithBundle` invoked `fetch-testdata.ps1` and then checked `$LASTEXITCODE`. That
+variable is only set by **native** executables; `fetch-testdata.ps1` ends with `Test-Path` and
+`Write-Host`, so the check read whatever a previous `git` or `gh` call had left behind and threw
+"Could not fetch the test bundle" even though the fetch had just succeeded and printed its
+verification hash. It now tests `$?`, which reflects whether the PowerShell command itself
+succeeded.
+
+This was found only because the workflow's new `test` job uses `-WithBundle`; every local run until
+now had the bundle already present and took the non-`-WithBundle` path.
+
 ### The audit is now a document, not a habit
 
 Three rounds of finding missing features was the signal to stop scanning ad hoc.

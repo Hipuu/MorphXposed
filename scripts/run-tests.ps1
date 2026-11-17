@@ -21,8 +21,12 @@ $root = Split-Path $PSScriptRoot -Parent
 Push-Location $root
 try {
     if ($WithBundle) {
+        # $LASTEXITCODE is only set by native executables. fetch-testdata.ps1 ends with Test-Path
+        # and Write-Host, so reading $LASTEXITCODE here returns whatever an earlier native command
+        # left behind - which made this throw even though the fetch had succeeded. Use $?, which
+        # reflects whether the last PowerShell command succeeded.
         & (Join-Path $PSScriptRoot 'fetch-testdata.ps1')
-        if ($LASTEXITCODE -ne 0) { throw "Could not fetch the test bundle" }
+        if (-not $?) { throw "Could not fetch the test bundle" }
     }
 
     $hasBundle = Test-Path (Join-Path $root 'testdata/patches.mpp')

@@ -63,6 +63,16 @@ try {
         Write-Warning "Build tools not found; skipping signature and component verification."
     }
 
+    # Prove the verifier itself still discriminates. A check that passes everything is worse than
+    # none, and this project has shipped one before (aapt2 dump strings cannot see dex, so the
+    # rename guard passed regardless of what the code contained).
+    $negative = Join-Path $PSScriptRoot 'verify-apk-negative.ps1'
+    if ((Test-Path $negative) -and $buildTools) {
+        Write-Host "`nProving the verifier rejects broken input..."
+        & $negative -AndroidHome $env:ANDROID_HOME | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "verify-apk accepted an APK it should have rejected" }
+    }
+
     # Execute the generated root-mount shell. Reading it is not enough: a syntax error or a
     # guard that does not exit is invisible until a device fails to boot with the module.
     $shellCheck = Join-Path $PSScriptRoot 'verify-root-scripts.sh'

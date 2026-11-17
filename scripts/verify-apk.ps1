@@ -51,6 +51,15 @@ foreach ($line in $tree) {
     if ($attrMatch.Success -and $currentTag -in $componentTags) {
         $value = $attrMatch.Groups[1].Value
 
+        # A component may be named relative to the package. AGP emits fully-qualified names, so the
+        # current APKs are unaffected, but a hand-written manifest using ".Foo" would otherwise be
+        # skipped entirely and this check would silently verify nothing.
+        if ($value.StartsWith(".", [StringComparison]::Ordinal)) {
+            $value = "$package$value"
+        } elseif ($value -notmatch '\.' -and $value -match '^[A-Z]') {
+            $value = "$package.$value"
+        }
+
         # A component name is a Java class in our package. Intent actions and permission names also
         # use android:name, so require a class-like final segment (starts uppercase, then lowercase).
         # .NET regex is used explicitly: PowerShell's -match is case-insensitive by default, which
