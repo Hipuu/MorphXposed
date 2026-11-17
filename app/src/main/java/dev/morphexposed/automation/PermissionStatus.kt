@@ -90,7 +90,9 @@ class PermissionStatus(private val context: Context) {
         val state = runCatching { LsposedStatus(context).read() }.getOrNull()
         val available = state?.managerInstalled == true
         return Item(
-            name = "LSPosed (optional)",
+            // The card appends " (optional)" to every item with required = false, so the name must
+            // not carry it too — doing both rendered "LSPosed (optional) (optional)".
+            name = "LSPosed",
             granted = available,
             description = "Enables real-time app install and update detection. Automation works " +
                 "without it, on the scheduled check.",

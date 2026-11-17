@@ -127,3 +127,16 @@ fun MetricTile(
         )
     }
 }
+
+/**
+ * Label for a verdict that may not have been computed yet.
+ *
+ * A null verdict means "not evaluated", never "not supported". Showing a compatibility claim the
+ * app has not made is how the Dashboard and the Apps screen came to disagree about the same app
+ * at the same moment on a real device.
+ */
+fun Compatibility?.labelOrUnknown(): String = this?.label() ?: "Checking…"
+
+/** Colour for [labelOrUnknown]: neutral while the verdict is unknown. */
+fun Compatibility?.colorOrUnknown(): Color =
+    this?.color() ?: Color(0xFF757575)

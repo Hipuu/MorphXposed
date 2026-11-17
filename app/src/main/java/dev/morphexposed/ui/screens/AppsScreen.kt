@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import dev.morphexposed.domain.apps.Compatibility
 import dev.morphexposed.ui.components.EmptyState
 import dev.morphexposed.ui.components.StatusChip
+import dev.morphexposed.ui.components.colorOrUnknown
+import dev.morphexposed.ui.components.labelOrUnknown
 import dev.morphexposed.ui.components.color
 import dev.morphexposed.ui.components.label
 import dev.morphexposed.ui.viewmodel.AppUiModel
@@ -159,7 +161,7 @@ private fun AppRow(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                StatusChip(model.status.label(), model.status.color())
+                StatusChip(model.status.labelOrUnknown(), model.status.colorOrUnknown())
             }
 
             if (model.report != null && !model.report.reason.isNullOrBlank()) {
@@ -224,7 +226,7 @@ private fun AppDetailDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 DetailRow("Package", model.app.packageName)
                 DetailRow("Installed", model.app.versionName)
-                DetailRow("Status", model.status.label())
+                DetailRow("Status", model.status.labelOrUnknown())
                 if (report != null) {
                     if (report.supportedVersions.isNotEmpty()) {
                         DetailRow("Supported", report.supportedVersions.take(5).joinToString(", "))

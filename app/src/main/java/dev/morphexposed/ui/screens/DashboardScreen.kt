@@ -32,6 +32,8 @@ import dev.morphexposed.domain.apps.Compatibility
 import dev.morphexposed.ui.components.EmptyState
 import dev.morphexposed.ui.components.MetricTile
 import dev.morphexposed.ui.components.StatusChip
+import dev.morphexposed.ui.components.colorOrUnknown
+import dev.morphexposed.ui.components.labelOrUnknown
 import dev.morphexposed.ui.components.color
 import dev.morphexposed.ui.components.label
 import dev.morphexposed.ui.viewmodel.AppUiModel
@@ -194,7 +196,7 @@ private fun DashboardAppRow(model: AppUiModel, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            StatusChip(model.status.label(), model.status.color())
+            StatusChip(model.status.labelOrUnknown(), model.status.colorOrUnknown())
         }
     }
 }

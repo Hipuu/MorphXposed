@@ -3,6 +3,7 @@ package dev.morphexposed.automation
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -87,6 +88,18 @@ class PermissionStatusTest {
                 "one rather than an assumption",
             item.granted || item.remedy != null
         )
+    }
+
+    @Test
+    fun `no item repeats the optional suffix in its own name`() {
+        // The Settings card appends " (optional)" to every non-required item, so a name that also
+        // carried it rendered "LSPosed (optional) (optional)" on a real device.
+        status.read().forEach { item ->
+            assertFalse(
+                "${item.name} already contains the optional suffix the card adds",
+                item.name.contains("(optional)", ignoreCase = true)
+            )
+        }
     }
 
     @Test

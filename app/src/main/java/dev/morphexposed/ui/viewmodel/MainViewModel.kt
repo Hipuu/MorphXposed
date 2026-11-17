@@ -34,7 +34,15 @@ data class AppUiModel(
     val app: SupportedAppEntity,
     val report: CompatibilityReport?
 ) {
-    val status: Compatibility get() = report?.status ?: Compatibility.NOT_SUPPORTED
+    /**
+     * The verdict, or null when it has not been computed yet.
+     *
+     * This used to fall back to [Compatibility.NOT_SUPPORTED], which turned "not evaluated" into
+     * a positive claim. On a device the Dashboard showed "Not supported" for YouTube while the
+     * Apps screen showed "Universal only" for the same app at the same moment, because only one of
+     * them had the report. Absence of a verdict is not a verdict.
+     */
+    val status: Compatibility? get() = report?.status
     val needsRepatch: Boolean
         get() = app.lastPatchedVersion != null && app.lastPatchedVersion != app.versionName
 }

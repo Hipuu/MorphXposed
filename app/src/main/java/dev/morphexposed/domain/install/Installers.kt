@@ -234,10 +234,68 @@ object RootShell {
     @Volatile
     private var cachedRoot: Boolean? = null
 
+    /**
+     * How this device's `su` accepts a command.
+     *
+     * There are two incompatible conventions and no way to ask in advance:
+     *
+     *  * Magisk, KernelSU and SuperSU take `su -c "<command>"`.
+     *  * The AOSP `su` shipped on userdebug builds takes `su <who> <command...>`, and rejects
+     *    `-c` outright with `su: invalid uid/gid '-c'`.
+     *
+     * Hardcoding `-c` made root undetectable on the emulator even though `adb root` reported
+     * uid=0 — the app said "no root" on a rooted device. Probed once and cached.
+     */
+    @Volatile
+    private var suStyle: SuStyle? = null
+
+    enum class SuStyle {
+        /** `su -c "<command>"` */
+        DASH_C,
+
+        /** `su <who> <command...>`, e.g. `su 0 id` */
+        WHO_COMMAND
+    }
+
+    /** Builds the argv this device's `su` understands. */
+    private fun argv(script: String): List<String> = when (probeStyle()) {
+        SuStyle.DASH_C -> listOf("su", "-c", script)
+        SuStyle.WHO_COMMAND -> listOf("su", "0", "sh", "-c", script)
+    }
+
+    /**
+     * Works out which convention works, by trying each once.
+     *
+     * A wrong guess is cheap (the process exits immediately with a usage error) and the answer is
+     * cached, so this runs at most twice per process.
+     */
+    private fun probeStyle(): SuStyle {
+        suStyle?.let { return it }
+
+        val dashC = runCatching {
+            val p = ProcessBuilder("su", "-c", "id").redirectErrorStream(true).start()
+            val out = p.inputStream.bufferedReader().readText()
+            p.waitFor()
+            out.contains("uid=0")
+        }.getOrDefault(false)
+        if (dashC) return SuStyle.DASH_C.also { suStyle = it }
+
+        val whoCommand = runCatching {
+            val p = ProcessBuilder("su", "0", "id").redirectErrorStream(true).start()
+            val out = p.inputStream.bufferedReader().readText()
+            p.waitFor()
+            out.contains("uid=0")
+        }.getOrDefault(false)
+        if (whoCommand) return SuStyle.WHO_COMMAND.also { suStyle = it }
+
+        // Neither worked; default to the Magisk convention so a later grant still succeeds.
+        return SuStyle.DASH_C.also { suStyle = it }
+    }
+
     fun hasRoot(): Boolean {
         cachedRoot?.let { return it }
         val ok = runCatching {
-            val process = ProcessBuilder("su", "-c", "id").redirectErrorStream(true).start()
+            val process = ProcessBuilder(argv("id")).redirectErrorStream(true).start()
             val output = process.inputStream.bufferedReader().readText()
             process.waitFor()
             output.contains("uid=0")
@@ -249,12 +307,13 @@ object RootShell {
     /** Forgets the cached probe so the next call re-tests (used after the user grants root). */
     fun invalidate() {
         cachedRoot = null
+        suStyle = null
     }
 
     fun run(vararg commands: String, verdict: (ExitStatus) -> Boolean): Boolean {
         val script = commands.joinToString(" ; ")
         return runCatching {
-            val process = ProcessBuilder("su", "-c", script).redirectErrorStream(true).start()
+            val process = ProcessBuilder(argv(script)).redirectErrorStream(true).start()
             val output = process.inputStream.bufferedReader().readText()
             val code = process.waitFor()
             verdict(ExitStatus(code, output))
@@ -270,7 +329,7 @@ object RootShell {
     fun pushFile(source: File, destinationPath: String): Boolean {
         if (!source.isFile) return false
         return runCatching {
-            val process = ProcessBuilder("su", "-c", "cat > $destinationPath")
+            val process = ProcessBuilder(argv("cat > $destinationPath"))
                 .redirectErrorStream(true)
                 .start()
             // Drain stderr/stdout so the child cannot block on a full pipe.
@@ -289,7 +348,7 @@ object RootShell {
 
     /** Writes [content] to [path] as root. */
     fun writeText(path: String, content: String): Boolean = runCatching {
-        val process = ProcessBuilder("su", "-c", "cat > $path").redirectErrorStream(true).start()
+        val process = ProcessBuilder(argv("cat > $path")).redirectErrorStream(true).start()
         process.outputStream.use { it.write(content.toByteArray()) }
         process.waitFor() == 0
     }.getOrDefault(false)
