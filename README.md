@@ -1,5 +1,9 @@
 # MorpheXposed
 
+> The product was renamed from *MorphXposed*; the **repository URL is unchanged**
+> (`github.com/Hipuu/MorphXposed`). The application id did change to `dev.morphexposed`, so an
+> older build must be uninstalled before installing this one. See [INSTALL.md](INSTALL.md).
+
 Automatic Morphe patching for Android, with optional LSPosed acceleration.
 
 MorpheXposed detects supported apps on your device, fetches the official Morphe patch

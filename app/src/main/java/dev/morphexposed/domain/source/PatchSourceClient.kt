@@ -291,7 +291,10 @@ class PatchSourceClient(
         const val KEEP_BUNDLES = 2
 
         private const val TAG = "MorphXPatchSource"
-        private const val USER_AGENT = "MorpheXposed/1.0 (+https://github.com/Hipuu/MorpheXposed)"
+        // The product name changed but the repository URL did not, so this must keep pointing at
+    // the repository that actually exists. A renamed-but-uncreated URL is a 404 in every request
+    // the app makes, which GitHub can rate-limit as abuse.
+    private const val USER_AGENT = "MorpheXposed/1.0 (+https://github.com/Hipuu/MorphXposed)"
 
         /** GitHub's API; overridable for tests. */
         const val DEFAULT_API_BASE = "https://api.github.com"
