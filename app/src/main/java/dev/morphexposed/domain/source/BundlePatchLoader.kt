@@ -45,8 +45,12 @@ object BundlePatchLoader {
         // writable by default, so this must happen before the DEX attempt.
         files.forEach(::makeReadOnly)
 
+        // Accept the DEX result only if it actually found patches. Under Robolectric the dex
+        // loader does not throw - it returns an empty list - so keying the fallback on an exception
+        // alone would treat "loaded nothing" as success and never reach the JAR path.
         runCatching { loadPatchesFromDex(files).toList() }
             .getOrNull()
+            ?.takeIf { it.isNotEmpty() }
             ?.let { return Result(it, Used.DEX) }
 
         // On a JVM the DEX path always fails; the JAR path is the one that works there.
