@@ -74,6 +74,8 @@ patcher, and is not required — the scheduled check is the guaranteed path.
   built this way.
 * [INSTALL.md](INSTALL.md) - installation, LSPosed activation and scope.
 * [TESTING.md](TESTING.md) - test results and the bugs each harness found.
+* [RELEASING.md](RELEASING.md) - cutting a release with GitHub Actions, and the signing secrets it
+  needs.
 
 ---
 

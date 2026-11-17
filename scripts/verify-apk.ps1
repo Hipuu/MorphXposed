@@ -13,8 +13,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $apkPath = (Resolve-Path $Apk).Path
-$aapt2 = Join-Path $BuildTools 'aapt2.exe'
-$dexdump = Join-Path $BuildTools 'dexdump.exe'
+$aapt2 = Join-Path $BuildTools $(if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'aapt2.exe' } else { 'aapt2' })
+$dexdump = Join-Path $BuildTools $(if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'dexdump.exe' } else { 'dexdump' })
 
 foreach ($tool in @($aapt2, $dexdump)) {
     if (-not (Test-Path $tool)) { throw "Missing tool: $tool" }

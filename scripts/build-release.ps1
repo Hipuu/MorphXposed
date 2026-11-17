@@ -48,7 +48,9 @@ try {
     # previous name or version and fail on them, which says nothing about this build.
     $produced = @($targets | ForEach-Object { Join-Path $out $_.Name })
     foreach ($apk in $produced | Where-Object { Test-Path $_ } | ForEach-Object { Get-Item $_ }) {
-            $verify = & (Join-Path $buildTools 'apksigner.bat') verify $apk.FullName 2>&1
+            # apksigner is a .bat on Windows and a plain script elsewhere.
+            $signer = if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'apksigner.bat' } else { 'apksigner' }
+            $verify = & (Join-Path $buildTools $signer) verify $apk.FullName 2>&1
             if ($LASTEXITCODE -ne 0) { throw "$($apk.Name) is not correctly signed" }
             Write-Host "  signed: $($apk.Name)"
 
@@ -65,8 +67,16 @@ try {
     $scriptDir = Join-Path $root 'app/build/root-scripts'
     if ((Test-Path $shellCheck) -and (Test-Path $scriptDir)) {
         Write-Host "`nExecuting the root-mount scripts..."
-        $wsl = Get-Command wsl -ErrorAction SilentlyContinue
-        if ($wsl) {
+        $onWindows = $IsWindows -or $env:OS -eq 'Windows_NT'
+        $wsl = if ($onWindows) { Get-Command wsl -ErrorAction SilentlyContinue } else { $null }
+        if (-not $onWindows) {
+            # Linux (CI): run the scripts directly, no WSL layer.
+            & bash (Join-Path $PSScriptRoot 'verify-root-scripts.sh') `
+                (Join-Path $root 'app/build/root-scripts/module.prop') `
+                (Join-Path $root 'app/build/root-scripts/post-fs-data.sh') `
+                (Join-Path $root 'app/build/root-scripts/service.sh')
+            if ($LASTEXITCODE -ne 0) { throw "The generated root-mount scripts failed shell verification" }
+        } elseif ($wsl) {
             $linuxRoot = '/mnt/' + ($root.Substring(0, 1).ToLower()) + ($root.Substring(2) -replace '\\', '/')
             $shellCmd = "cd $linuxRoot && sed -i 's/\r`$//' scripts/verify-root-scripts.sh && " +
                 "bash scripts/verify-root-scripts.sh app/build/root-scripts/module.prop " +

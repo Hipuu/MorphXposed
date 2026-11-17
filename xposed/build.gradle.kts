@@ -32,7 +32,11 @@ android {
 
             // Same signing identity strategy as the main app: sign when a keystore exists, so
             // the module APK is installable straight from the build output.
-            val keystoreFile = rootProject.file("keystore/release.jks")
+            // keystore/release.jks locally, or a keystore decoded from a secret in CI. Both
+            // paths point at a real file, so release builds are signed identically either way.
+            val keystoreFile = System.getenv("MORPHX_KEYSTORE_PATH")
+                ?.let { File(it) }
+                ?: rootProject.file("keystore/release.jks")
             signingConfig = if (keystoreFile.exists()) {
                 signingConfigs.create("release") {
                     storeFile = keystoreFile

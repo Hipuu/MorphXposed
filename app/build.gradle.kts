@@ -32,7 +32,11 @@ android {
             // Sign release builds from keystore/release.jks when it is present, so the APK is
             // directly installable. Without it the build still succeeds, producing an unsigned
             // APK for manual signing (see scripts/build-release.ps1).
-            val keystoreFile = rootProject.file("keystore/release.jks")
+            // keystore/release.jks locally, or a keystore decoded from a secret in CI. Both
+            // paths point at a real file, so release builds are signed identically either way.
+            val keystoreFile = System.getenv("MORPHX_KEYSTORE_PATH")
+                ?.let { File(it) }
+                ?: rootProject.file("keystore/release.jks")
             signingConfig = if (keystoreFile.exists()) {
                 signingConfigs.create("release") {
                     storeFile = keystoreFile

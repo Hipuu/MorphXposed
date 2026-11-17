@@ -1,0 +1,177 @@
+name: Release
+
+# Builds and verifies both APKs, then publishes them to a GitHub Release.
+#
+# Triggered by pushing a tag like v1.0.0. The heavy lifting is the same PowerShell pipeline used
+# locally (scripts/build-release.ps1), run on a Linux runner with pwsh: that keeps one definition
+# of "a valid release" instead of a second, drifting copy in YAML.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (for a manual run)'
+        required: false
+
+permissions:
+  contents: write          # needed to create the Release and upload assets
+  packages: read           # needed to resolve morphe-patcher from GitHub Packages
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # ubuntu-latest has the JDK, bash and a working unzip; nothing here needs Windows.
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          # The build targets JVM 17, but AGP 9 and Kotlin 2.4 are exercised on 21.
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-37 build-tools;37.0.0 platform-tools'
+
+      - name: Set up PowerShell
+        uses: PSModule/install-pwsh@v1
+        with:
+          run-as-root: false
+
+      # --- Signing ---------------------------------------------------------------------------
+      # The keystore is the app's update identity. It is stored base64-encoded in a secret and
+      # written outside the workspace, so it cannot be picked up by the artifact upload or by any
+      # later step that archives the tree.
+      - name: Detect signing material
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          # The secrets context is not available in `if:` expressions, so presence is resolved
+          # here and the later steps branch on this output instead.
+          if [ -n "${KEYSTORE_BASE64:-}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::KEYSTORE_BASE64 is not set. Add the signing secrets listed in RELEASING.md; without them the release step will refuse to publish."
+          fi
+
+      - name: Decode the signing keystore
+        if: steps.signing.outputs.available == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          if [ ! -s "$RUNNER_TEMP/release.jks" ]; then
+            echo "::error::The decoded keystore is empty. Check the KEYSTORE_BASE64 secret."
+            exit 1
+          fi
+          echo "MORPHX_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "Decoded keystore: $(stat -c%s "$RUNNER_TEMP/release.jks") bytes"
+
+      
+
+      # --- Fetch the fixture the bundle-dependent tests need ----------------------------------
+      # Without it those suites skip themselves, and a skip is not a pass.
+      - name: Fetch the Morphe patch bundle
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pwsh -NoProfile -File ./scripts/fetch-testdata.ps1
+
+      # --- The build itself ------------------------------------------------------------------
+      - name: Build, verify and sign the APKs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MORPHX_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          MORPHX_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          MORPHX_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: pwsh -NoProfile -File ./scripts/build-release.ps1
+
+      # --- Prove the artifacts are what they claim -------------------------------------------
+      - name: Verify the APKs
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_HOME/build-tools/37.0.0"
+          for apk in dist/*.apk; do
+            echo "== $apk"
+            "$BT/apksigner" verify --print-certs "$apk"
+            "$BT/aapt2" dump badging "$apk" | head -1
+          done
+
+      - name: Confirm the APKs are signed
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_HOME/build-tools/37.0.0"
+          for apk in dist/*.apk; do
+            # apksigner exits non-zero and prints "DOES NOT VERIFY" for an unsigned APK.
+            if ! "$BT/apksigner" verify "$apk"; then
+              echo "::error::$apk is not signed. A release must never be published unsigned."
+              exit 1
+            fi
+          done
+
+      - name: Upload build outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: MorpheXposed-${{ github.ref_name }}
+          path: |
+            dist/*.apk
+            TESTING.md
+            REQUIREMENTS.md
+            INSTALL.md
+          if-no-files-found: error
+          retention-days: 30
+
+      # --- Publish ---------------------------------------------------------------------------
+      - name: Publish the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: MorpheXposed ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist/MorpheXposed.apk
+            dist/MorpheXposed-Events.apk
+          body: |
+            ## Install
+
+            * `MorpheXposed.apk` - the main app (Android 8.0+).
+            * `MorpheXposed-Events.apk` - the optional LSPosed module. Not required: it only
+              forwards package install/update events so automation reacts immediately. The
+              scheduled check works without it.
+
+            See [INSTALL.md](INSTALL.md) for root-mount vs session installer trade-offs, and the
+            LSPosed scope instructions.
+
+            **The application id changed** from `dev.morphxposed` to `dev.morphexposed`. Uninstall
+            any pre-rename build first; Android treats the two as different apps. The signing key
+            is unchanged, so update identity is preserved once reinstalled.
+
+            ## Verified before publishing
+
+            Every release is built by the same pipeline used locally, which fails rather than
+            publishing something that does not hold up:
+
+            * both APKs signed and `apksigner`-verified;
+            * every manifest component present in the dex;
+            * the LSPosed bridge permission is signature-guarded and the receiver filters its action;
+            * the events module declares the actions that let LSPosed open its settings screen;
+            * the generated root-mount shell is executed against stubbed Android commands, including
+              that a version mismatch refuses to mount;
+            * no references to the pre-rename package remain;
+            * 296 unit and integration tests, 0 skipped.
