@@ -359,6 +359,31 @@ Screenshots are in [docs/screenshots](docs/screenshots).
 a real app), root-mount installation, and the live LSPosed hook. The emulator has no root and no
 LSPosed, so those remain unverified.
 
+### An unanswered root prompt froze the app
+
+Connecting a real phone (OnePlus 13, Android 17, user build) to run the instrumented test wedged
+the whole adb shell queue: the first `su -c id` never returned. The cause was a superuser prompt on
+the device — `su` is alive and simply waits for an answer, and every call site used a bare
+`waitFor()` with no deadline.
+
+That is not only an adb problem. `PermissionStatus.read()` calls `RootShell.hasRoot()`, and that is
+what the **Settings screen** renders, so opening Settings on any device with a pending or
+unanswered grant would have blocked the app indefinitely with no way out. A patch run reaching the
+root-mount installer would have hung the same way.
+
+Every invocation is now bounded: the style probe at 3 s, general commands at 30 s, file writes at
+30 s, and the APK push at 120 s (a large APK over a slow link is legitimately slow). A timeout
+destroys the process and is reported as "no root for now", so the Permissions card renders and the
+user can retry after answering.
+
+Two mistakes in my own fix, both caught by the suite rather than by reasoning:
+
+* I moved the timeout in without moving `ProcessBuilder.start()` inside the `try`, so a device
+  without `su` threw `IOException` instead of reporting no root — breaking two installer tests.
+* `RootShellTimeoutTest` initially failed because it matched the string `waitFor()` inside the
+  comment explaining the bug. A check that trips over its own documentation is not checking code;
+  it now strips comment lines first.
+
 ### The guards are tested too
 
 Every guard here exists because a check once reported success without checking. A guard script that

@@ -264,29 +264,62 @@ object RootShell {
     }
 
     /**
+     * Runs `su` and captures its output, giving up after [timeoutMs].
+     *
+     * A bare `waitFor()` blocks forever when the superuser manager is showing a prompt — the
+     * process is alive and simply never exits until the user answers. That is not hypothetical:
+     * probing root on a real OnePlus 13 wedged the whole adb shell queue, and the same code path
+     * runs from the Settings screen (`PermissionStatus` calls `hasRoot`), so opening Settings
+     * would have frozen the app with no way out. Every invocation now has a deadline.
+     *
+     * Returns null on timeout so callers can distinguish "denied" from "did not answer".
+     */
+    private fun runSu(argv: List<String>, timeoutMs: Long = 3_000): Pair<Int, String>? {
+        // start() must be inside the try: on a device without su it throws IOException, and
+        // "no root" is a normal answer, not an error to propagate.
+        return try {
+            val process = ProcessBuilder(argv).redirectErrorStream(true).start()
+            // Drain on a worker so a chatty su cannot fill the pipe and deadlock the read.
+            val output = StringBuilder()
+            val reader = Thread {
+                runCatching {
+                    process.inputStream.bufferedReader().forEachLine { line ->
+                        synchronized(output) { output.appendLine(line) }
+                    }
+                }
+            }.apply { isDaemon = true; start() }
+
+            val finished = process.waitFor(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+            if (!finished) {
+                // Destroy forcibly: a waiting su is usually blocked on a dialog, not on work.
+                process.destroyForcibly()
+                reader.join(500)
+                return null
+            }
+            reader.join(500)
+            val text = synchronized(output) { output.toString() }
+            process.exitValue() to text
+        } catch (t: Throwable) {
+            null
+        }
+    }
+
+    /**
      * Works out which convention works, by trying each once.
      *
      * A wrong guess is cheap (the process exits immediately with a usage error) and the answer is
-     * cached, so this runs at most twice per process.
+     * cached, so this runs at most twice per process. Each attempt is bounded, because the first
+     * call on a device with a superuser manager blocks on a prompt if the user does not answer.
      */
     private fun probeStyle(): SuStyle {
         suStyle?.let { return it }
 
-        val dashC = runCatching {
-            val p = ProcessBuilder("su", "-c", "id").redirectErrorStream(true).start()
-            val out = p.inputStream.bufferedReader().readText()
-            p.waitFor()
-            out.contains("uid=0")
-        }.getOrDefault(false)
-        if (dashC) return SuStyle.DASH_C.also { suStyle = it }
-
-        val whoCommand = runCatching {
-            val p = ProcessBuilder("su", "0", "id").redirectErrorStream(true).start()
-            val out = p.inputStream.bufferedReader().readText()
-            p.waitFor()
-            out.contains("uid=0")
-        }.getOrDefault(false)
-        if (whoCommand) return SuStyle.WHO_COMMAND.also { suStyle = it }
+        runSu(listOf("su", "-c", "id"))?.let { (_, out) ->
+            if (out.contains("uid=0")) return SuStyle.DASH_C.also { suStyle = it }
+        }
+        runSu(listOf("su", "0", "id"))?.let { (_, out) ->
+            if (out.contains("uid=0")) return SuStyle.WHO_COMMAND.also { suStyle = it }
+        }
 
         // Neither worked; default to the Magisk convention so a later grant still succeeds.
         return SuStyle.DASH_C.also { suStyle = it }
@@ -294,12 +327,9 @@ object RootShell {
 
     fun hasRoot(): Boolean {
         cachedRoot?.let { return it }
-        val ok = runCatching {
-            val process = ProcessBuilder(argv("id")).redirectErrorStream(true).start()
-            val output = process.inputStream.bufferedReader().readText()
-            process.waitFor()
-            output.contains("uid=0")
-        }.getOrDefault(false)
+        // A timeout is treated as "no root for now" rather than blocking; the user can retry from
+        // the Permissions card once they have answered the prompt.
+        val ok = runSu(argv("id"))?.second?.contains("uid=0") ?: false
         cachedRoot = ok
         return ok
     }
@@ -312,12 +342,9 @@ object RootShell {
 
     fun run(vararg commands: String, verdict: (ExitStatus) -> Boolean): Boolean {
         val script = commands.joinToString(" ; ")
-        return runCatching {
-            val process = ProcessBuilder(argv(script)).redirectErrorStream(true).start()
-            val output = process.inputStream.bufferedReader().readText()
-            val code = process.waitFor()
-            verdict(ExitStatus(code, output))
-        }.getOrDefault(false)
+        // Bounded: an unanswered superuser prompt would otherwise block this call forever.
+        val result = runSu(argv(script), timeoutMs = 30_000) ?: return false
+        return runCatching { verdict(ExitStatus(result.first, result.second)) }.getOrDefault(false)
     }
 
     /**
@@ -340,17 +367,20 @@ object RootShell {
             process.outputStream.use { out ->
                 source.inputStream().use { input -> input.copyTo(out, DEFAULT_BUFFER_SIZE) }
             }
-            val code = process.waitFor()
+            // Bounded. A root prompt left unanswered would otherwise hang a patch run with no way
+            // to cancel it from the UI; a large APK over a slow link needs the longer deadline.
+            val finished = process.waitFor(120, java.util.concurrent.TimeUnit.SECONDS)
+            if (!finished) process.destroyForcibly()
             drain.join(2_000)
-            code == 0
+            finished && process.exitValue() == 0
         }.getOrDefault(false)
     }
 
-    /** Writes [content] to [path] as root. */
+    /** Writes [content] to [path] as root. Bounded for the same reason as [run]. */
     fun writeText(path: String, content: String): Boolean = runCatching {
         val process = ProcessBuilder(argv("cat > $path")).redirectErrorStream(true).start()
         process.outputStream.use { it.write(content.toByteArray()) }
-        process.waitFor() == 0
+        process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
     }.getOrDefault(false)
 
     data class ExitStatus(val code: Int, val output: String) {
