@@ -323,6 +323,42 @@ it is more honest than inventing a use for it.
 `RunRetentionTest` pins retention, since "the method exists" was precisely the state that looked
 healthy before.
 
+## On-device testing (Android 14, API 34, x86_64)
+
+This environment was previously reported as unable to run an emulator. That was wrong:
+`VirtualizationFirmwareEnabled` is false, but **`HypervisorPlatform` (WHPX) was merely disabled**.
+Enabling it (`Enable-WindowsOptionalFeature -FeatureName HypervisorPlatform`) produced a working
+accelerator without a reboot — `emulator-check accel` reports *"WHPX(10.0.26200) is installed and
+usable"*. An AVD on `system-images;android-34;google_apis;x86_64` boots headless.
+
+**What this proved immediately.** The APK installed, launched, and rendered all six screens with no
+`AndroidRuntime` errors. Then it tried to load the official Morphe bundle and failed — twice — in
+ways no unit test could have caught:
+
+| Step | Error on device | Cause |
+|---|---|---|
+| Load | `ClassCastException: UnsupportedOperationException cannot be cast to ClassNotFoundException` at `URLClassLoader.findClass` | `loadPatchesFromJar` uses `URLClassLoader`; Android needs `loadPatchesFromDex` (`DexClassLoader`) |
+| Load | `SecurityException: Writable dex file '...' is not allowed` at `DexFile.openDexFileNative` | a downloaded bundle is writable; Android refuses to load a writable dex |
+
+Both are now fixed in `BundlePatchLoader`, which tries the dex loader and falls back to the jar
+loader so the JVM tests keep working.
+
+**Result after the fixes**, on a real device against the real 16 MB bundle:
+
+| Package | Installed | Verdict | Supported versions reported |
+|---|---|---|---|
+| `com.google.android.youtube` | 19.17.42 | `UNIVERSAL_ONLY` | 21.45.82, … |
+| `com.google.android.apps.youtube.music` | 5.54.52 | `UNIVERSAL_ONLY` | 9.46.51, 9.45… |
+
+Those verdicts and version lists are read from the bundle, not invented. `UNIVERSAL_ONLY` is the
+regression fixed much earlier — it correctly refuses to call an unsupported version patchable.
+
+Screenshots are in [docs/screenshots](docs/screenshots).
+
+**What is still not tested on device:** the patcher itself has not been run end-to-end (a patch of
+a real app), root-mount installation, and the live LSPosed hook. The emulator has no root and no
+LSPosed, so those remain unverified.
+
 ### The guards are tested too
 
 Every guard here exists because a check once reported success without checking. A guard script that
