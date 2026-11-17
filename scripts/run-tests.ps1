@@ -73,6 +73,19 @@ try {
     if ($failed -gt 0) {
         throw "$failed test(s) failed"
     }
+    # Zero tests is not a pass. If the result files are missing or unreadable the loop above
+    # counts nothing and every check below succeeds vacuously, so the summary would read
+    # "total 0, failures 0" and exit clean - the same shape as a release build that produced no
+    # release and reported success.
+    if ($total -eq 0) {
+        throw @"
+No test results were found in: $($dirs -join ', ')
+
+Nothing ran, so nothing passed. This usually means the Gradle test task did not execute or wrote
+its reports elsewhere; check that ':app:testDebugUnitTest' and ':xposed:testDebugUnitTest' are
+still the right task names, and that the JUnit XML reports are enabled.
+"@
+    }
     if ($WithBundle -and $skipped -gt 0) {
         # With the bundle present nothing should skip; a skip here means a fixture path broke.
         throw "$skipped test(s) skipped even though the bundle is present"
@@ -81,6 +94,14 @@ try {
         Write-Host "  note: no bundle, yet nothing skipped - check the bundle-dependent suites actually ran" `
             -ForegroundColor Yellow
     }
+    # Prove the zero-test guard is still present. A guard that silently reverts to a warning is
+    # the failure this whole script exists to prevent.
+    $guard = Join-Path $PSScriptRoot 'check-zero-tests.ps1'
+    if (Test-Path $guard) {
+        & $guard | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "The zero-test guard is missing or ineffective" }
+    }
+
     Write-Host "======================================================"
 } finally {
     Pop-Location

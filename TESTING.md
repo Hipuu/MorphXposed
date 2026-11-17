@@ -323,6 +323,39 @@ it is more honest than inventing a use for it.
 `RunRetentionTest` pins retention, since "the method exists" was precisely the state that looked
 healthy before.
 
+### Zero tests reported as a pass
+
+The mirror of the previous defect. `run-tests.ps1` sums whatever JUnit XML it finds under the
+module result directories. If the reports are missing, or the task names drift, the loop counts
+nothing, every assertion below succeeds, and the summary reads:
+
+```
+  total   : 0
+  failures: 0
+  skipped : 0
+```
+
+with a clean exit. I confirmed this by reproducing the counting logic against empty directories: no
+exception, no warning.
+
+A run that executed no tests has not earned the word pass. The script now throws when the total is
+zero, naming the directories it searched and the likely causes:
+
+```
+No test results were found in: app/build/test-results/testDebugUnitTest, ...
+
+Nothing ran, so nothing passed. This usually means the Gradle test task did not execute or wrote
+its reports elsewhere; check that ':app:testDebugUnitTest' and ':xposed:testDebugUnitTest' are
+still the right task names, and that the JUnit XML reports are enabled.
+```
+
+`scripts/check-zero-tests.ps1` asserts the guard exists and is not a warning, and is run from
+`run-tests.ps1` itself.
+
+Writing that control found a second, smaller mistake of mine: it summed only the **app** module and
+reported 289, while the real total is 296 (289 app + 7 module). The control would have quietly
+agreed with an incomplete figure. It now sums both, matching what the runner does.
+
 ### A release build that produced no release, and said it succeeded
 
 I cloned the repository to a clean directory — which is what a CI runner does — and ran
