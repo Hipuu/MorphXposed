@@ -10,7 +10,7 @@ fail=0
 
 echo "=== Inline run blocks parse under bash -n and bash -e -n ==="
 shopt -s nullglob
-blocks=("$OUT"/step*.sh)
+blocks=("$OUT"/*-step*.sh)
 shopt -u nullglob
 if [ "${#blocks[@]}" -eq 0 ]; then
   echo "  SKIP: no extracted blocks (run extract.js first)"

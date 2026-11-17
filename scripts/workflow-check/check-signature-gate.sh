@@ -8,7 +8,7 @@
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-STEP="$HERE/out/step9-Confirm-the-APKs-are-signed.sh"
+STEP="$HERE/out/release-step9-Confirm-the-APKs-are-signed.sh"
 
 SBX=/tmp/morphexposed-siggate
 rm -rf "$SBX"

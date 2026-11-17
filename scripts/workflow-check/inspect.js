@@ -54,10 +54,13 @@ if (problems.length) {
   process.exit(1);
 }
 
-const job = Object.values(doc.jobs)[0];
 console.log(`  triggers : ${Object.keys(triggers).join(', ')}`);
-console.log(`  runs-on  : ${job['runs-on']}`);
-console.log(`  steps    : ${job.steps.length}`);
-job.steps.forEach((s, i) => {
-  console.log(`   ${String(i + 1).padStart(2)}. ${s.name || s.uses}`);
-});
+// Report every job, not just the first. A workflow with several jobs is exactly where a check
+// that stops at job one stops being a check.
+for (const [name, job] of Object.entries(doc.jobs)) {
+  const needs = job.needs ? `  (needs: ${[].concat(job.needs).join(', ')})` : '';
+  console.log(`\n  job ${name}  runs-on=${job['runs-on']}${needs}`);
+  job.steps.forEach((s, i) => {
+    console.log(`   ${String(i + 1).padStart(2)}. ${s.name || s.uses}`);
+  });
+}

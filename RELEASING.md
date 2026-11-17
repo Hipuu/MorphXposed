@@ -10,14 +10,17 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-That triggers `.github/workflows/release.yml`, which:
+That triggers `.github/workflows/release.yml`, which runs two jobs:
 
-1. builds both APKs with `scripts/build-release.ps1` on a Linux runner;
-2. verifies them - signed, every manifest component present in the dex, the LSPosed bridge contract,
-   the module's settings actions, the executed root-mount scripts, and no leftover pre-rename
-   package references;
-3. refuses to publish if any of that fails or if either APK is unsigned;
-4. attaches `MorpheXposed.apk` and `MorpheXposed-Events.apk` to a GitHub Release.
+**`test`** — fetches the Morphe bundle, then runs `scripts/run-tests.ps1 -WithBundle`. Without the
+bundle the bundle-dependent suites skip themselves, and a skip is not a pass, so the fetch is what
+makes the result meaningful. The release job cannot start unless this passes.
+
+**`release`** — builds both APKs with `scripts/build-release.ps1`, verifies them (signed, every
+manifest component present in the dex, the LSPosed bridge contract, the module's settings actions,
+the executed root-mount scripts, no leftover pre-rename package references), and refuses to publish
+if any of that fails or if either APK is unsigned. Then attaches `MorpheXposed.apk` and
+`MorpheXposed-Events.apk` to a GitHub Release.
 
 You can also run it manually from the Actions tab (`workflow_dispatch`); a manual run builds and
 uploads artifacts but only creates a Release when the ref is a tag.
@@ -56,9 +59,7 @@ password, so `KEY_ALIAS=morphxposed` and `KEYSTORE_PASSWORD=morphxposed-release`
 
 ## What the workflow deliberately does not do
 
-* **It does not run the tests.** `scripts/run-tests.ps1` downloads the 16 MB Morphe bundle and takes
-  several minutes; the release job fetches the bundle only so the pipeline's own verification has
-  what it needs. Run `./scripts/run-tests.ps1 -WithBundle` before tagging if you want that gate.
+
 * **It does not build on Windows.** The scripts are cross-platform, but the runner is Linux because
   that is cheaper and has `bash` available for the root-script execution step. PowerShell 7 is
   preinstalled on `ubuntu-latest`, so nothing installs it.
