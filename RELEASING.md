@@ -60,7 +60,8 @@ password, so `KEY_ALIAS=morphxposed` and `KEYSTORE_PASSWORD=morphxposed-release`
   several minutes; the release job fetches the bundle only so the pipeline's own verification has
   what it needs. Run `./scripts/run-tests.ps1 -WithBundle` before tagging if you want that gate.
 * **It does not build on Windows.** The scripts are cross-platform, but the runner is Linux because
-  that is cheaper and has `bash` available for the root-script execution step.
+  that is cheaper and has `bash` available for the root-script execution step. PowerShell 7 is
+  preinstalled on `ubuntu-latest`, so nothing installs it.
 * **It does not sign with a throwaway key.** A release that changes signature between runs cannot
   update an installed app.
 
@@ -73,3 +74,5 @@ password, so `KEY_ALIAS=morphxposed` and `KEYSTORE_PASSWORD=morphxposed-release`
 | `no references to the pre-rename package remain` | a `dev.morphxposed` string survived somewhere; the check names the entry it was found in |
 | `does not declare ...` | a manifest intent filter or permission was removed |
 | shell verification non-zero | the generated root-mount scripts regressed; run `scripts/verify-root-scripts.sh` locally |
+| `Could not find package android-37` | the SDK package id is `platforms;android-37.0`; check `sdkmanager --list` before changing it |
+| `gradlew: Permission denied` | the executable bit was lost; `git update-index --chmod=+x gradlew` |

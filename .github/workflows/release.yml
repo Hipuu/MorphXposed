@@ -32,24 +32,25 @@ jobs:
 
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           # The build targets JVM 17, but AGP 9 and Kotlin 2.4 are exercised on 21.
           distribution: temurin
           java-version: '21'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
-          packages: 'platforms;android-37 build-tools;37.0.0 platform-tools'
+          # The package id is 'android-37.0', not 'android-37' (verified with sdkmanager --list).
+          # A wrong id fails the setup step before any code is compiled.
+          packages: 'platforms;android-37.0 build-tools;37.0.0 platform-tools'
 
-      - name: Set up PowerShell
-        uses: PSModule/install-pwsh@v1
-        with:
-          run-as-root: false
+      # PowerShell is already on ubuntu-latest (7.6.x), so setting it up would be redundant. The
+      # previous version of this workflow pinned PSModule/install-pwsh, which does not exist -
+      # that step would have failed before the build started.
 
       # --- Signing ---------------------------------------------------------------------------
       # The keystore is the app's update identity. It is stored base64-encoded in a secret and
@@ -126,7 +127,7 @@ jobs:
           done
 
       - name: Upload build outputs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: MorpheXposed-${{ github.ref_name }}
           path: |

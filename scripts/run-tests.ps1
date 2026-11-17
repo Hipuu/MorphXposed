@@ -33,7 +33,9 @@ try {
     }
 
     # --rerun-tasks is the point: without it Gradle may replay cached results.
-    & ./gradlew.bat :app:testDebugUnitTest :xposed:testDebugUnitTest --rerun-tasks
+    # gradlew.bat does not exist off Windows.
+    $gradlew = if ($IsWindows -or $env:OS -eq 'Windows_NT') { './gradlew.bat' } else { './gradlew' }
+    & $gradlew :app:testDebugUnitTest :xposed:testDebugUnitTest --rerun-tasks
     if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
 
     $total = 0; $failed = 0; $skipped = 0

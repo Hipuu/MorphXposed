@@ -14,7 +14,9 @@ $root = Split-Path $PSScriptRoot -Parent
 Push-Location $root
 try {
     Write-Host "Building MorpheXposed release artifacts..."
-    & ./gradlew.bat :app:assembleRelease :xposed:assembleRelease --no-daemon
+    # gradlew.bat does not exist on Linux, and this script runs on the CI runner too.
+    $gradlew = if ($IsWindows -or $env:OS -eq 'Windows_NT') { './gradlew.bat' } else { './gradlew' }
+    & $gradlew :app:assembleRelease :xposed:assembleRelease --no-daemon
     if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE" }
 
     $out = Join-Path $root 'dist'
