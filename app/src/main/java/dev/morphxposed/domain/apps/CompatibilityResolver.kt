@@ -19,9 +19,6 @@ enum class Compatibility {
     /** The bundle can patch the app, but not this version. */
     UNSUPPORTED_VERSION,
 
-    /** The bundle has patches for the package but none can run on this device SDK. */
-    UNSUPPORTED_DEVICE,
-
     /** No enabled bundle knows this package. */
     NOT_SUPPORTED
 }
@@ -68,8 +65,7 @@ object CompatibilityResolver {
     fun resolve(
         bundle: BundleInfo,
         packageName: String,
-        installedVersion: String,
-        deviceSdk: Int
+        installedVersion: String
     ): CompatibilityReport {
         val packageSpecific = bundle.patches.filter { it.compatibility.containsKey(packageName) }
         val universal = bundle.patches.filter { it.isUniversal }

@@ -50,7 +50,7 @@ class CompatibilityResolverTest {
     @Test
     fun `supported when installed version is declared`() {
         val b = bundle(patch("Hide ads", compat = arrayOf("com.example.app" to listOf("1.0.0", "1.1.0"))))
-        val report = CompatibilityResolver.resolve(b, "com.example.app", "1.1.0", 34)
+        val report = CompatibilityResolver.resolve(b, "com.example.app", "1.1.0")
 
         assertEquals(Compatibility.SUPPORTED, report.status)
         assertEquals(1, report.applicablePatches.size)
@@ -60,7 +60,7 @@ class CompatibilityResolverTest {
     @Test
     fun `unsupported when version is not declared`() {
         val b = bundle(patch("Hide ads", compat = arrayOf("com.example.app" to listOf("1.0.0"))))
-        val report = CompatibilityResolver.resolve(b, "com.example.app", "9.9.9", 34)
+        val report = CompatibilityResolver.resolve(b, "com.example.app", "9.9.9")
 
         assertEquals(Compatibility.UNSUPPORTED_VERSION, report.status)
         assertFalse(report.hasApplicablePatches)
@@ -70,7 +70,7 @@ class CompatibilityResolverTest {
     @Test
     fun `patch with no versions supports any version of that package`() {
         val b = bundle(patch("Universal tweak", compat = arrayOf("com.example.app" to emptyList())))
-        val report = CompatibilityResolver.resolve(b, "com.example.app", "42.0.0", 34)
+        val report = CompatibilityResolver.resolve(b, "com.example.app", "42.0.0")
 
         assertEquals(Compatibility.SUPPORTED, report.status)
         assertEquals(1, report.applicablePatches.size)
@@ -86,7 +86,7 @@ class CompatibilityResolverTest {
             patch("Spoof signature", universal = true),
             patch("Hide ads", compat = arrayOf("com.example.app" to listOf("1.0.0")))
         )
-        val report = CompatibilityResolver.resolve(b, "com.example.app", "9.9.9", 34)
+        val report = CompatibilityResolver.resolve(b, "com.example.app", "9.9.9")
 
         assertEquals(Compatibility.UNIVERSAL_ONLY, report.status)
         assertTrue(
@@ -98,7 +98,7 @@ class CompatibilityResolverTest {
     @Test
     fun `universal patch on a package no patch targets is universal only`() {
         val b = bundle(patch("Spoof signature", universal = true))
-        val report = CompatibilityResolver.resolve(b, "com.anything.at.all", "1.0", 34)
+        val report = CompatibilityResolver.resolve(b, "com.anything.at.all", "1.0")
 
         assertEquals(Compatibility.UNIVERSAL_ONLY, report.status)
         assertEquals(1, report.applicablePatches.size)
@@ -110,7 +110,7 @@ class CompatibilityResolverTest {
             patch("Spoof signature", universal = true),
             patch("Hide ads", compat = arrayOf("com.example.app" to listOf("1.0.0")))
         )
-        val report = CompatibilityResolver.resolve(b, "com.example.app", "1.0.0", 34)
+        val report = CompatibilityResolver.resolve(b, "com.example.app", "1.0.0")
 
         assertEquals(Compatibility.SUPPORTED, report.status)
         assertEquals(2, report.applicablePatches.size)
@@ -119,7 +119,7 @@ class CompatibilityResolverTest {
     @Test
     fun `not supported when no patch mentions the package`() {
         val b = bundle(patch("Hide ads", compat = arrayOf("com.other.app" to listOf("1.0.0"))))
-        val report = CompatibilityResolver.resolve(b, "com.example.app", "1.0.0", 34)
+        val report = CompatibilityResolver.resolve(b, "com.example.app", "1.0.0")
 
         assertEquals(Compatibility.NOT_SUPPORTED, report.status)
     }
@@ -130,7 +130,7 @@ class CompatibilityResolverTest {
             patch("Old only", compat = arrayOf("com.example.app" to listOf("1.0.0"))),
             patch("Current", compat = arrayOf("com.example.app" to listOf("2.0.0")))
         )
-        val report = CompatibilityResolver.resolve(b, "com.example.app", "2.0.0", 34)
+        val report = CompatibilityResolver.resolve(b, "com.example.app", "2.0.0")
 
         assertEquals(Compatibility.SUPPORTED, report.status)
         assertEquals(listOf("Current"), report.applicablePatches.map { it.name })
@@ -143,7 +143,7 @@ class CompatibilityResolverTest {
             patch("On", defaultsOn = true, compat = arrayOf("com.example.app" to listOf("1.0"))),
             patch("Off", defaultsOn = false, compat = arrayOf("com.example.app" to listOf("1.0")))
         )
-        val report = CompatibilityResolver.resolve(b, "com.example.app", "1.0", 34)
+        val report = CompatibilityResolver.resolve(b, "com.example.app", "1.0")
 
         assertEquals(listOf("On"), CompatibilityResolver.defaultSelection(report))
     }
@@ -154,7 +154,7 @@ class CompatibilityResolverTest {
             patch("A", defaultsOn = false, compat = arrayOf("com.example.app" to listOf("1.0"))),
             patch("B", defaultsOn = false, compat = arrayOf("com.example.app" to listOf("1.0")))
         )
-        val report = CompatibilityResolver.resolve(b, "com.example.app", "1.0", 34)
+        val report = CompatibilityResolver.resolve(b, "com.example.app", "1.0")
 
         assertEquals(listOf("A", "B"), CompatibilityResolver.defaultSelection(report).sorted())
     }
@@ -162,10 +162,10 @@ class CompatibilityResolverTest {
     @Test
     fun `best bundle prefers one that supports the installed version`() {
         val unsupported = CompatibilityResolver.resolve(
-            bundle(patch("X", compat = arrayOf("p" to listOf("1.0")))), "p", "3.0", 34
+            bundle(patch("X", compat = arrayOf("p" to listOf("1.0")))), "p", "3.0"
         )
         val supported = CompatibilityResolver.resolve(
-            bundle(patch("Y", compat = arrayOf("p" to listOf("3.0")))), "p", "3.0", 34
+            bundle(patch("Y", compat = arrayOf("p" to listOf("3.0")))), "p", "3.0"
         )
 
         val best = CompatibilityResolver.best(listOf(1L to unsupported, 2L to supported))

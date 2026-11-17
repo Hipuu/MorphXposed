@@ -43,8 +43,9 @@ Totals are in [TESTING.md](TESTING.md).
 | Retrieve patches from official sources | `PatchSourceRepository.refresh` → GitHub Releases API, seeded with the official source | `SourceAndReceiverTest`, `RealBundleIntegrationTest` |
 | Check compatibility against installed versions | `CompatibilityResolver`; `UNIVERSAL_ONLY` prevents an unsupported version from resolving as supported | `CompatibilityResolverTest` (3 regression tests for the universal-patch bug) |
 | Download and verify patch files | `PatchSourceClient` — SHA-256 of the release asset, atomic staging, container validation | `BundleDownloadVerificationTest` (12, MockWebServer) |
-| Maintain a local patch cache | `PatchSourceClient` bundle directory; released bundles are kept, pruned by count | `BundleDownloadVerificationTest` |
+| Maintain a local patch cache | `PatchSourceClient` bundle directory; two bundles kept per source, older ones pruned | `BundleDownloadVerificationTest` |
 | Automatically detect new patch releases | `UpdateCheckWorker` → `PatchCoordinator.checkForPatchUpdates`, notifies on change | `UpdateCheckPlanTest`, `WorkSchedulingTest` |
+| Bounded storage | `MAX_RUNS_RETAINED` for history, `KEEP_BUNDLES` for cached bundles | `RunRetentionTest` |
 | Support rollback and recovery | `RollbackService` (restores the retained original APK) | `RollbackServiceTest` (8) |
 | Show available / installed / **outdated** | `patch_sources.latestTag` vs `installedTag`, distinct chip in `PatchesScreen` | `PatchSourceUpdateStateTest` (7) |
 
@@ -91,6 +92,7 @@ Totals are in [TESTING.md](TESTING.md).
 | Retry failed operations safely | bounded at 3 attempts, then waits for the next schedule | `UpdateCheckPlanTest` |
 | Notify when patches are applied | `Notifications.patchSucceeded` | `NotificationsTest` |
 | Notify when intervention is needed | `Notifications.actionRequired` on patched-but-not-installed | `NotificationsTest` |
+| Bounded storage | run history retained at `MAX_RUNS_RETAINED`, cached bundles at `KEEP_BUNDLES` | `RunRetentionTest` (6) |
 
 ## 8. Security and reliability
 
@@ -102,7 +104,7 @@ Totals are in [TESTING.md](TESTING.md).
 | Request root only when necessary | `RootMountInstaller` is opt-in; session install is the default | `OrchestratorLogicTest` |
 | Do not modify unrelated applications | target must resolve `Compatibility.SUPPORTED` before any write | `CompatibilityResolverTest`, `OrchestratorLogicTest` |
 | Maintain backups and rollback | `backupOriginal` writes the original APK (or `.apks` for splits) | `BackupRollbackTest` (8), `RollbackServiceTest` |
-| Handle version differences | `VersionComparator` for Morphe version strings; minSdk 26 gate | `VersionComparatorTest` (4) |
+| Handle version differences | `VersionComparator` for Morphe version strings; minSdk 26 means every supported device has the platform APIs used. Patches declare app versions, not device SDKs, so there is no device-compatibility verdict to give (see below) | `VersionComparatorTest` (4) |
 | Handle ABI differences | `ArchitectureSelection` → `PatcherConfig.keepArchitectures`, empty set = keep everything | `ArchitectureSelectionTest` (8) |
 
 ## 9. Technical requirements

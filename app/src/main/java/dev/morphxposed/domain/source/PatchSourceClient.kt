@@ -168,6 +168,12 @@ class PatchSourceClient(
                 staging.copyTo(target, overwrite = true)
                 staging.delete()
             }
+
+            // Bundle files are large (the official one is ~16 MB), so keeping every release
+            // would grow the app's storage without bound. The previous bundle is retained
+            // because repatching may still need it; older ones are dropped.
+            pruneOldBundles(keepFile = target)
+
             DownloadedBundle(
                 file = target,
                 sha256 = actual,
@@ -180,6 +186,29 @@ class PatchSourceClient(
             if (t is SourceException) throw t
             throw SourceException(SourceError.Network(t.message ?: t.javaClass.simpleName))
         }
+    }
+
+    /**
+     * Deletes cached bundles for the same source beyond [KEEP_BUNDLES], newest first.
+     *
+     * The current bundle and its immediate predecessor are kept: a repatch may still reference
+     * the previous one, and deleting a file a stored run points at would turn a working record
+     * into a dangling path. Anything older serves no purpose.
+     */
+    private fun pruneOldBundles(keepFile: File) {
+        runCatching {
+            val prefix = keepFile.name.substringBefore('-')
+            val siblings = keepFile.parentFile
+                ?.listFiles { f -> f.isFile && f.name.startsWith(prefix) && f.extension == "mpp" }
+                ?.sortedByDescending { it.lastModified() }
+                ?: return
+            siblings.drop(KEEP_BUNDLES).forEach { old ->
+                if (old.absolutePath != keepFile.absolutePath) {
+                    Log.i(TAG, "Pruning cached bundle ${old.name}")
+                    old.delete()
+                }
+            }
+        }.onFailure { Log.w(TAG, "Could not prune cached bundles: ${it.message}") }
     }
 
     private fun copyWithDigest(
@@ -255,6 +284,12 @@ class PatchSourceClient(
         joinToString("") { "%02x".format(it) }
 
     companion object {
+        /**
+         * How many cached bundles to keep per source. The official bundle is ~16 MB, so an
+         * unbounded cache is a real storage problem rather than a tidiness one.
+         */
+        const val KEEP_BUNDLES = 2
+
         private const val TAG = "MorphXPatchSource"
         private const val USER_AGENT = "MorphXposed/1.0 (+https://github.com/Hipuu/MorphXposed)"
 

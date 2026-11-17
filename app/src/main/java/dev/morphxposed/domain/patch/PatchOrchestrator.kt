@@ -114,8 +114,7 @@ class PatchOrchestrator(
             val report = CompatibilityResolver.resolve(
                 bundle = bundleInfo,
                 packageName = packageName,
-                installedVersion = app.versionName,
-                deviceSdk = android.os.Build.VERSION.SDK_INT
+                installedVersion = app.versionName
             )
             if (report.status != Compatibility.SUPPORTED) {
                 emit(PatchEvent.Error(report.reason))
@@ -139,6 +138,9 @@ class PatchOrchestrator(
             }
 
             // ---- 5. Record the run ------------------------------------------------------------
+            // Keep the run history bounded: without this the Logs table grows forever, and each
+            // row carries the whole patch log. Eight runs per app is plenty to diagnose with.
+            runCatching { db.patchRunDao().pruneTo(MAX_RUNS_RETAINED) }
             runId = db.patchRunDao().insert(
                 PatchRunEntity(
                     packageName = packageName,
@@ -323,7 +325,7 @@ class PatchOrchestrator(
                 }
 
             val report = CompatibilityResolver.resolve(
-                info, packageName, installedVersion, android.os.Build.VERSION.SDK_INT
+                info, packageName, installedVersion
             )
             if (report.status == Compatibility.SUPPORTED) {
                 return ResolvedBundle(
@@ -407,6 +409,12 @@ class PatchOrchestrator(
     }
 
     companion object {
+        /**
+         * How many finished runs to keep. Each row stores the run's full log, so the table grows
+         * quickly on a device that patches several apps on a schedule.
+         */
+        const val MAX_RUNS_RETAINED = 200
+
         private const val TAG = "MorphXOrchestrator"
     }
 }

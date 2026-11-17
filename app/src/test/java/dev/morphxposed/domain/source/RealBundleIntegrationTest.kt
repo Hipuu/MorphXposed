@@ -100,7 +100,6 @@ class RealBundleIntegrationTest {
             bundle = bundleFrom(file!!, patches),
             packageName = "com.google.android.youtube",
             installedVersion = anyVersion,
-            deviceSdk = 34
         )
         assertEquals(Compatibility.SUPPORTED, report.status)
         assertTrue(report.applicablePatches.isNotEmpty())
@@ -116,7 +115,6 @@ class RealBundleIntegrationTest {
             bundle = bundleFrom(file!!, patches),
             packageName = "com.google.android.youtube",
             installedVersion = "0.0.1-not-a-real-version",
-            deviceSdk = 34
         )
         // The official bundle also ships universal patches (signature/installer spoofing) that
         // apply to any app, so an unsupported version resolves as UNIVERSAL_ONLY rather than

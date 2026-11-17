@@ -348,7 +348,7 @@ class MainViewModel(private val app: MorphXposedApp) : ViewModel() {
             val bundle = info.values.firstOrNull { it.supportedPackages.containsKey(row.packageName) }
             val report = bundle?.let {
                 CompatibilityResolver.resolve(
-                    bundle, row.packageName, row.versionName, android.os.Build.VERSION.SDK_INT
+                    bundle, row.packageName, row.versionName
                 )
             }
             AppUiModel(row, report)

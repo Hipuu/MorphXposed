@@ -26,7 +26,6 @@ fun Compatibility.color(): Color = when (this) {
     Compatibility.SUPPORTED -> Color(0xFF2E7D32)
     Compatibility.UNIVERSAL_ONLY -> Color(0xFFE6A700)
     Compatibility.UNSUPPORTED_VERSION -> Color(0xFFE6A700)
-    Compatibility.UNSUPPORTED_DEVICE -> Color(0xFFE6A700)
     Compatibility.NOT_SUPPORTED -> Color(0xFF757575)
 }
 
@@ -34,7 +33,6 @@ fun Compatibility.label(): String = when (this) {
     Compatibility.SUPPORTED -> "Compatible"
     Compatibility.UNIVERSAL_ONLY -> "Universal only"
     Compatibility.UNSUPPORTED_VERSION -> "Version unsupported"
-    Compatibility.UNSUPPORTED_DEVICE -> "Device unsupported"
     Compatibility.NOT_SUPPORTED -> "Not supported"
 }
 

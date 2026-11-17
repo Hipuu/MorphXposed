@@ -127,8 +127,9 @@ BUILD SUCCESSFUL
 | `PatchSourceUpdateStateTest` | 7 | 0 | Robolectric + Room |
 | `PermissionStatusTest` | 7 | 0 | Robolectric |
 | `NotificationsTest` | 8 | 0 | Robolectric + ShadowNotificationManager |
+| `RunRetentionTest` | 6 | 0 | Robolectric + Room |
 | Root-mount shell execution | 14 checks | 0 | **real bash via WSL** |
-| **Total** | **237** | **0** (0 skipped) | |
+| **Total** | **243** | **0** (0 skipped) | |
 
 ### Compose UI is actually composed
 
@@ -190,6 +191,32 @@ early-exit paths, which are the easiest to get wrong and the hardest to notice:
   with a trailing slash, with `.git`) normalizes to the same source;
 * a failed refresh records the error **without erasing the working cached bundle**;
 * only enabled sources are read.
+
+### Verifying the traceability doc found two unbounded-growth bugs
+
+`REQUIREMENTS.md` makes claims. One had already proved false (`verify-apk.ps1` did not check the
+intent filters), so the rest were checked rather than trusted. Two more were wrong:
+
+**`pruneTo` existed and was never called.** The `patch_runs` table grows without bound, and every
+row stores the run's complete patch log. On a device patching several apps on a schedule that is
+a slow leak with no visible symptom until the database is large. It is now called before each
+insert, retaining 200 runs.
+
+**Cached bundles were never pruned either.** The download path wrote a new `.mpp` per release and
+kept every one — the official bundle is about 16 MB, so a handful of releases is a hundred
+megabytes of dead files. Two are now kept: the current one and its predecessor, because a stored
+run may still point at the previous file and deleting it would turn a working record into a
+dangling path.
+
+**And a status that could never occur.** `Compatibility.UNSUPPORTED_DEVICE` was declared, given a
+colour, given a label, and **never assigned**. Morphe's `Compatibility` and `AppTarget` carry no
+device-SDK constraint — only app versions — so device incompatibility is not derivable, and for an
+*installed* app it cannot arise anyway. The `deviceSdk` parameter the resolver accepted was never
+read. Both are gone: a status the UI can never show is a claim the code cannot back, and removing
+it is more honest than inventing a use for it.
+
+`RunRetentionTest` pins retention, since "the method exists" was precisely the state that looked
+healthy before.
 
 ### The audit is now a document, not a habit
 

@@ -52,8 +52,7 @@ class BundleShapeDiagnosticsTest {
         val bogus = CompatibilityResolver.resolve(
             buildBundle(file, patches),
             "com.google.android.youtube",
-            "0.0.1-not-a-real-version",
-            34
+            "0.0.1-not-a-real-version"
         )
         println("resolver says for bogus version: ${bogus.status}")
         println("reason: ${bogus.reason}")
