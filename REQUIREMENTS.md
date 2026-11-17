@@ -105,6 +105,7 @@ Totals are in [TESTING.md](TESTING.md).
 | Request root only when necessary | `RootMountInstaller` is opt-in; session install is the default | `OrchestratorLogicTest` |
 | Do not modify unrelated applications | target must resolve `Compatibility.SUPPORTED` before any write | `CompatibilityResolverTest`, `OrchestratorLogicTest` |
 | Maintain backups and rollback | `backupOriginal` writes the original APK (or `.apks` for splits) | `BackupRollbackTest` (8), `RollbackServiceTest` |
+| Warn before a restore destroys data | `RestorePresentation` — destructive restores are confirmed, and the confirm label names the consequence | `RestorePresentationTest` (12) |
 | Handle version differences | `VersionComparator` for Morphe version strings; minSdk 26 means every supported device has the platform APIs used. Patches declare app versions, not device SDKs, so there is no device-compatibility verdict to give (see below) | `VersionComparatorTest` (4) |
 | Handle ABI differences | `ArchitectureSelection` → `PatcherConfig.keepArchitectures`, empty set = keep everything | `ArchitectureSelectionTest` (8) |
 
